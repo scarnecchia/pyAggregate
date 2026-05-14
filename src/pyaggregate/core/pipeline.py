@@ -1,6 +1,7 @@
 # pattern: Imperative Shell
 """Pipeline orchestration for stacked, masked, and rollup aggregation outputs."""
 
+import fnmatch
 import logging
 from collections.abc import Callable
 
@@ -11,6 +12,24 @@ from pyaggregate.core.dpid_mask import mask_dpid
 from pyaggregate.core.input_resolution import TableInput
 
 logger = logging.getLogger(__name__)
+
+
+def should_exclude_rollup(table_name: str, exclude_patterns: tuple[str, ...]) -> bool:
+    """Check if table name matches any exclusion pattern.
+
+    Uses fnmatch for glob-style pattern matching (e.g., "*_stats").
+
+    Args:
+        table_name: Name of the table to check
+        exclude_patterns: Tuple of fnmatch patterns (e.g., ("*_stats", "lab_*"))
+
+    Returns:
+        True if table_name matches any pattern, False otherwise
+    """
+    for pattern in exclude_patterns:
+        if fnmatch.fnmatch(table_name, pattern):
+            return True
+    return False
 
 
 def compute_rollup(
@@ -101,7 +120,11 @@ def aggregate_table(
         empty_masked = pl.DataFrame({
             "surrogate_id": pl.Series([], dtype=pl.Int64),
         })
-        return {"stacked": empty_stacked, "masked": empty_masked}
+        result = {"stacked": empty_stacked, "masked": empty_masked}
+        if not should_exclude_rollup(table_name, agg_config.exclude_from_rollup):
+            empty_rollup = pl.DataFrame()
+            result["rollup"] = empty_rollup
+        return result
 
     # Read LazyFrames from each DP
     lazy_frames: list[pl.LazyFrame] = []
@@ -178,7 +201,10 @@ def aggregate_table(
     # Apply masking
     masked = mask_dpid(stacked, dpid_map)
 
-    # Compute rollup
-    rollup = compute_rollup(stacked, None, None)
+    # Compute rollup (unless excluded)
+    result = {"stacked": stacked, "masked": masked}
+    if not should_exclude_rollup(table_name, agg_config.exclude_from_rollup):
+        rollup = compute_rollup(stacked, None, None)
+        result["rollup"] = rollup
 
-    return {"stacked": stacked, "masked": masked, "rollup": rollup}
+    return result
