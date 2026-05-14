@@ -26,16 +26,22 @@ CONFIG_OPTION = typer.Option(
 )
 
 
+_log_level: int = logging.INFO
+
+
 def configure_app(verbose: bool = False) -> None:
     """Configure application logging before any subcommand runs.
 
     This is called as a typer callback before subcommands execute.
+    Sets up stderr-only logging initially; subcommands add file logging
+    after config is loaded.
 
     Args:
         verbose: Enable DEBUG level logging
     """
-    log_level = logging.DEBUG if verbose else logging.INFO
-    configure_logging(log_dir=None, level=log_level)
+    global _log_level  # noqa: PLW0603
+    _log_level = logging.DEBUG if verbose else logging.INFO
+    configure_logging(log_dir=None, level=_log_level)
 
 
 # Register callback to run before any command
@@ -89,7 +95,7 @@ def scan(
         config_path = resolve_config_path(config)
         cfg = load_config(config_path)
 
-        configure_logging(log_dir=cfg.state.log_dir)
+        configure_logging(log_dir=cfg.state.log_dir, level=_log_level)
 
         with CatalogStore(cfg.state.catalog_db) as store:
             if dry_run:
@@ -145,7 +151,7 @@ def run(
         config_path = resolve_config_path(config)
         cfg = load_config(config_path)
 
-        configure_logging(log_dir=cfg.state.log_dir)
+        configure_logging(log_dir=cfg.state.log_dir, level=_log_level)
 
         # Resolve catalog and output paths
         catalog_db = catalog if catalog is not None else cfg.state.catalog_db

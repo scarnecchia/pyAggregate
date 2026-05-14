@@ -202,8 +202,7 @@ class TestScannerBasics:
 
         # Verify WARN log was emitted with the unparseable directory name
         assert any(
-            "unparseable package directory" in record.message
-            and record.levelno == logging.WARNING
+            "unparseable package directory" in record.message and record.levelno == logging.WARNING
             for record in caplog.records
         )
 
