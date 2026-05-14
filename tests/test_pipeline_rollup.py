@@ -1,13 +1,14 @@
 """Tests for pipeline rollup aggregation."""
 
 from pathlib import Path
+from types import MappingProxyType
 
 import polars as pl
 import pytest
-from hypothesis import given
+from hypothesis import example, given
 from hypothesis import strategies as st
 
-from pyaggregate.config import AggTypeConfig
+from pyaggregate.config import AggTypeConfig, TableOverride
 from pyaggregate.core.input_resolution import TableInput
 from pyaggregate.core.pipeline import aggregate_table, compute_rollup
 
@@ -92,8 +93,6 @@ class TestComputeRollupBasic:
 
         rollup = compute_rollup(stacked, ["region"], None)
 
-        # With just region as key, aeos CA and cms CA collapse (different regions)
-        # But wait: different regions. Let me redo this.
         assert "region" in rollup.columns
         assert "state" not in rollup.columns
 
@@ -148,21 +147,25 @@ class TestComputeRollupPropertyBased:
     """Property-based tests using hypothesis."""
 
     @given(
-        st.data(),
         st.lists(
             st.tuples(
-                st.just("aeos"),
+                st.sampled_from(["aeos", "cms", "kpsc"]),
+                st.sampled_from(["CA", "TX", "NY"]),
                 st.integers(min_value=0, max_value=100),
             ),
             min_size=1,
             max_size=20,
         ),
     )
-    def test_rollup_row_count_invariant(self, data, rows) -> None:
+    @example([("aeos", "CA", 10), ("aeos", "CA", 20), ("cms", "CA", 30)])
+    @example([("aeos", "CA", 10)])
+    @example([("aeos", "CA", 10), ("aeos", "TX", 20), ("cms", "NY", 30)])
+    def test_rollup_row_count_invariant(self, rows) -> None:
         """Row count of rollup is less than or equal to stacked."""
         stacked = pl.DataFrame({
             "dpid": [r[0] for r in rows],
-            "value": [r[1] for r in rows],
+            "region": [r[1] for r in rows],
+            "value": [r[2] for r in rows],
         })
 
         rollup = compute_rollup(stacked, None, None)
@@ -179,6 +182,9 @@ class TestComputeRollupPropertyBased:
             max_size=50,
         )
     )
+    @example([("aeos", 10)])
+    @example([("aeos", 10), ("aeos", 20), ("aeos", 30)])
+    @example([("aeos", 100), ("cms", 200), ("kpsc", 300)])
     def test_rollup_sum_preservation(self, rows) -> None:
         """Sum of numeric columns preserved from stacked to rollup."""
         stacked = pl.DataFrame({
@@ -202,6 +208,8 @@ class TestComputeRollupPropertyBased:
             max_size=50,
         )
     )
+    @example([("aeos", 10)])
+    @example([("aeos", 10), ("cms", 20)])
     def test_rollup_no_dpid_leakage(self, rows) -> None:
         """dpid and surrogate_id never appear in rollup output."""
         stacked = pl.DataFrame({
@@ -225,6 +233,9 @@ class TestComputeRollupPropertyBased:
             max_size=30,
         )
     )
+    @example([("aeos", "CA", 10)])
+    @example([("aeos", "CA", 10), ("aeos", "CA", 20)])
+    @example([("aeos", "CA", 10), ("aeos", "TX", 20), ("aeos", "NY", 30)])
     def test_rollup_schema_stability(self, rows) -> None:
         """Rollup columns are stacked columns minus dpid and surrogate_id."""
         stacked = pl.DataFrame({
@@ -334,3 +345,66 @@ class TestAggregateTableWithRollup:
         )
 
         assert result["rollup"].height <= result["stacked"].height
+
+    def test_aggregate_table_applies_config_rollup_keys(
+        self, dpid_map: pl.DataFrame
+    ) -> None:
+        """Config-driven custom rollup_keys are applied to rollup computation."""
+        table_inputs = [
+            TableInput("aeos", "wp041", Path("/data/aeos/msoc"), "qar"),
+            TableInput("cms", "wp041", Path("/data/cms/msoc"), "qar"),
+        ]
+
+        # Create config with custom rollup_keys for 'patient' table
+        table_overrides = MappingProxyType({
+            "patient": TableOverride(rollup_keys=("patient_id",), rollup_aggs=None),
+        })
+        agg_config = AggTypeConfig(
+            name="qa",
+            source_reqtype="qar",
+            table_overrides=table_overrides,
+        )
+
+        result = aggregate_table(
+            table_inputs,
+            dpid_map,
+            agg_config,
+            "patient",
+            self.fake_reader,
+        )
+
+        rollup = result["rollup"]
+        # With patient_id as key, should have 4 rows (patient_ids 1, 2, 3, 4)
+        assert rollup.height == 4
+        assert "patient_id" in rollup.columns
+        assert "value" in rollup.columns
+
+    def test_aggregate_table_applies_config_rollup_aggs(
+        self, dpid_map: pl.DataFrame
+    ) -> None:
+        """Config-driven custom rollup_aggs are applied to rollup computation."""
+        table_inputs = [
+            TableInput("aeos", "wp041", Path("/data/aeos/msoc"), "qar"),
+        ]
+
+        # Create config with custom aggregation (mean instead of sum)
+        table_overrides = MappingProxyType({
+            "patient": TableOverride(rollup_keys=None, rollup_aggs={"value": "mean"}),
+        })
+        agg_config = AggTypeConfig(
+            name="qa",
+            source_reqtype="qar",
+            table_overrides=table_overrides,
+        )
+
+        result = aggregate_table(
+            table_inputs,
+            dpid_map,
+            agg_config,
+            "patient",
+            self.fake_reader,
+        )
+
+        rollup = result["rollup"]
+        # With custom agg (mean), value should be average of [100, 200]
+        assert rollup["value"][0] == pytest.approx(150.0)

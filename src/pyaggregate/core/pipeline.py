@@ -63,7 +63,9 @@ def compute_rollup(
     if rollup_aggs is None:
         col_types = zip(working.columns, working.schema.values(), strict=True)
         numeric_cols = {col for col, dtype in col_types if dtype.is_numeric()}
-        rollup_aggs_final = {col: "sum" for col in numeric_cols}
+        # Exclude grouping keys from aggregations
+        numeric_cols_to_agg = numeric_cols - set(rollup_keys_final)
+        rollup_aggs_final = {col: "sum" for col in numeric_cols_to_agg}
     else:
         rollup_aggs_final = rollup_aggs
 
@@ -201,7 +203,15 @@ def aggregate_table(
     # Compute rollup (unless excluded)
     result = {"stacked": stacked, "masked": masked}
     if not should_exclude_rollup(table_name, agg_config.exclude_from_rollup):
-        rollup = compute_rollup(stacked, None, None)
+        # Look up table-specific overrides from config
+        rollup_keys = None
+        rollup_aggs = None
+        if table_name in agg_config.table_overrides:
+            override = agg_config.table_overrides[table_name]
+            rollup_keys = list(override.rollup_keys) if override.rollup_keys else None
+            rollup_aggs = override.rollup_aggs
+
+        rollup = compute_rollup(stacked, rollup_keys, rollup_aggs)
         result["rollup"] = rollup
 
     return result
