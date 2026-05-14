@@ -12,5 +12,7 @@ src/pyaggregate.egg-info/top_level.txt
 src/pyaggregate/core/__init__.py
 src/pyaggregate/core/paths.py
 src/pyaggregate/io/__init__.py
+src/pyaggregate/io/catalog_store.py
+tests/test_catalog_store.py
 tests/test_config.py
 tests/test_paths.py
