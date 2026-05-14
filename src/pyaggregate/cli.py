@@ -89,6 +89,8 @@ def scan(
         config_path = resolve_config_path(config)
         cfg = load_config(config_path)
 
+        configure_logging(log_dir=cfg.state.log_dir)
+
         with CatalogStore(cfg.state.catalog_db) as store:
             if dry_run:
                 changes = run_scan_dry(cfg, store)
@@ -142,6 +144,8 @@ def run(
         # Load config and resolve paths
         config_path = resolve_config_path(config)
         cfg = load_config(config_path)
+
+        configure_logging(log_dir=cfg.state.log_dir)
 
         # Resolve catalog and output paths
         catalog_db = catalog if catalog is not None else cfg.state.catalog_db

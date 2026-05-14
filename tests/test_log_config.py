@@ -71,8 +71,8 @@ class TestJsonFormatter:
         assert parsed["scan_id"] == "abc123"
         assert parsed["table"] == "demographics"
 
-    def test_uses_relative_paths_in_source_path(self):
-        """JsonFormatter uses relative paths, not absolute."""
+    def test_excludes_pathname_from_output(self):
+        """JsonFormatter excludes pathname to prevent absolute path leakage."""
         formatter = JsonFormatter()
         record = logging.LogRecord(
             name="test.module",
@@ -86,9 +86,7 @@ class TestJsonFormatter:
         output = formatter.format(record)
         parsed = json.loads(output)
 
-        if "source_path" in parsed:
-            assert not parsed["source_path"].startswith("/")
-            assert parsed["source_path"].startswith("src/")
+        assert "pathname" not in parsed
 
 
 class TestConfigureLogging:
