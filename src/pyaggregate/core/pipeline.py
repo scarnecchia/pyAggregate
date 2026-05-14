@@ -1,7 +1,7 @@
 # pattern: Functional Core
 """Pipeline orchestration for stacked and masked aggregation outputs."""
 
-from typing import Callable
+from collections.abc import Callable
 
 import polars as pl
 
@@ -15,7 +15,7 @@ def aggregate_table(
     dpid_map: pl.DataFrame,
     agg_config: AggTypeConfig,
     table_name: str,
-    reader_fn: Callable,
+    reader_fn: Callable[[object, str, str], pl.LazyFrame],
 ) -> dict[str, pl.DataFrame]:
     """Aggregate a table from multiple data providers.
 

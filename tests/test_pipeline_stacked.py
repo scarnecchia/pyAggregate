@@ -1,7 +1,6 @@
 """Tests for pipeline aggregation orchestration."""
 
 from pathlib import Path
-from typing import Callable
 
 import polars as pl
 import pytest

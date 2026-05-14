@@ -1,7 +1,5 @@
 """Tests for dpid masking function."""
 
-from pathlib import Path
-
 import polars as pl
 import pytest
 from hypothesis import HealthCheck, given, settings
