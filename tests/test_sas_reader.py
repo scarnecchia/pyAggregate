@@ -179,19 +179,6 @@ class TestGlobTables:
 
         assert result == ["Patient"]
 
-    def test_glob_tables_custom_exclude(self, tmp_path: Path) -> None:
-        """glob_tables respects custom exclude_subdirs."""
-        msoc_path = tmp_path / "msoc"
-        msoc_path.mkdir()
-        other_dir = msoc_path / "other_snapshot"
-        other_dir.mkdir()
-
-        (msoc_path / "Patient.sas7bdat").touch()
-        (other_dir / "Diagnosis.sas7bdat").touch()
-
-        result = glob_tables(msoc_path, exclude_subdirs=("other_snapshot",))
-
-        assert result == ["Patient"]
 
     def test_glob_tables_empty_msoc(self, tmp_path: Path) -> None:
         """glob_tables returns empty list for empty msoc_path."""

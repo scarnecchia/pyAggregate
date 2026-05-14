@@ -39,10 +39,11 @@ def resolve_inputs(
         return {}
 
     # Glob filesystem for each catalog row
-    table_listings: list[tuple[str, str, Path, str]] = []
+    table_listings: list[tuple[str, str, str, Path, str]] = []
 
     for row in filtered_catalog.iter_rows(named=True):
         dpid: str = row["dpid"]
+        wpid: str = row["wpid"]
         msoc_path_str: str = row["msoc_path"]
         reqtype: str = row["reqtype"]
 
@@ -55,11 +56,11 @@ def resolve_inputs(
             else glob_tables(msoc_path)
         )
 
-        # Add (table_name, dpid, msoc_path, reqtype) tuples
+        # Add (table_name, dpid, wpid, msoc_path, reqtype) tuples
         for table_name in tables:
-            table_listings.append((table_name, dpid, msoc_path, reqtype))
+            table_listings.append((table_name, dpid, wpid, msoc_path, reqtype))
 
     # Group by table name
-    result = group_inputs_by_table(table_listings, agg_config)
+    result = group_inputs_by_table(table_listings)
 
     return result

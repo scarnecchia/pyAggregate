@@ -125,12 +125,12 @@ class TestGroupInputsByTable:
     def test_group_inputs_by_table_groups_correctly(self) -> None:
         """Groups inputs by table name."""
         table_listings = [
-            ("patient", "aeos", Path("/data/aeos/qar/msoc"), "qar"),
-            ("diagnosis", "aeos", Path("/data/aeos/qar/msoc"), "qar"),
-            ("patient", "cms", Path("/data/cms/qar/msoc"), "qar"),
+            ("patient", "aeos", "wp041", Path("/data/aeos/qar/msoc"), "qar"),
+            ("diagnosis", "aeos", "wp041", Path("/data/aeos/qar/msoc"), "qar"),
+            ("patient", "cms", "wp041", Path("/data/cms/qar/msoc"), "qar"),
         ]
 
-        result = group_inputs_by_table(table_listings, AggTypeConfig(name="qa"))
+        result = group_inputs_by_table(table_listings)
 
         assert "patient" in result
         assert "diagnosis" in result
@@ -138,23 +138,24 @@ class TestGroupInputsByTable:
         assert len(result["diagnosis"]) == 1
 
     def test_group_inputs_by_table_preserves_metadata(self) -> None:
-        """Preserves dpid, msoc_path, and reqtype in TableInput."""
+        """Preserves dpid, wpid, msoc_path, and reqtype in TableInput."""
         table_listings = [
-            ("patient", "aeos", Path("/data/aeos/qar/msoc"), "qar"),
+            ("patient", "aeos", "wp041", Path("/data/aeos/qar/msoc"), "qar"),
         ]
 
-        result = group_inputs_by_table(table_listings, AggTypeConfig(name="qa"))
+        result = group_inputs_by_table(table_listings)
 
         patient_inputs = result["patient"]
         assert len(patient_inputs) == 1
         input_obj = patient_inputs[0]
         assert input_obj.dpid == "aeos"
+        assert input_obj.wpid == "wp041"
         assert input_obj.msoc_path == Path("/data/aeos/qar/msoc")
         assert input_obj.reqtype == "qar"
 
     def test_group_inputs_by_table_empty_listings(self) -> None:
         """Returns empty dict for empty table listings."""
-        result = group_inputs_by_table([], AggTypeConfig(name="qa"))
+        result = group_inputs_by_table([])
         assert result == {}
 
     def test_table_input_is_frozen(self) -> None:
@@ -163,6 +164,7 @@ class TestGroupInputsByTable:
 
         table_input = TableInput(
             dpid="aeos",
+            wpid="wp041",
             msoc_path=Path("/data"),
             reqtype="qar",
         )
@@ -178,8 +180,8 @@ class TestDetectSddCollisions:
         """Detects same filename from both qar and qmr for same (dpid, wpid)."""
         inputs = {
             "patient": [
-                TableInput("aeos", Path("/data/aeos/qar/msoc"), "qar"),
-                TableInput("aeos", Path("/data/aeos/qmr/msoc"), "qmr"),
+                TableInput("aeos", "wp041", Path("/data/aeos/qar/msoc"), "qar"),
+                TableInput("aeos", "wp041", Path("/data/aeos/qmr/msoc"), "qmr"),
             ],
         }
 
@@ -193,8 +195,8 @@ class TestDetectSddCollisions:
         """No collision when same filename from different dpids."""
         inputs = {
             "patient": [
-                TableInput("aeos", Path("/data/aeos/qar/msoc"), "qar"),
-                TableInput("cms", Path("/data/cms/qar/msoc"), "qar"),
+                TableInput("aeos", "wp041", Path("/data/aeos/qar/msoc"), "qar"),
+                TableInput("cms", "wp041", Path("/data/cms/qar/msoc"), "qar"),
             ],
         }
 
@@ -206,8 +208,8 @@ class TestDetectSddCollisions:
         """No collision when same filename from same reqtype."""
         inputs = {
             "patient": [
-                TableInput("aeos", Path("/data/aeos/qar/msoc"), "qar"),
-                TableInput("cms", Path("/data/cms/qar/msoc"), "qar"),
+                TableInput("aeos", "wp041", Path("/data/aeos/qar/msoc"), "qar"),
+                TableInput("cms", "wp041", Path("/data/cms/qar/msoc"), "qar"),
             ],
         }
 

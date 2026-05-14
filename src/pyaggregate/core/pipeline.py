@@ -1,6 +1,7 @@
-# pattern: Functional Core
+# pattern: Imperative Shell
 """Pipeline orchestration for stacked and masked aggregation outputs."""
 
+import logging
 from collections.abc import Callable
 
 import polars as pl
@@ -8,6 +9,8 @@ import polars as pl
 from pyaggregate.config import AggTypeConfig
 from pyaggregate.core.dpid_mask import mask_dpid
 from pyaggregate.core.input_resolution import TableInput
+
+logger = logging.getLogger(__name__)
 
 
 def aggregate_table(
@@ -54,9 +57,63 @@ def aggregate_table(
         lazy_frames.append(lazy_frame)
 
     # Collect frames to DataFrames and check schemas
-    frames: list[pl.DataFrame] = []
-    for frame in lazy_frames:
-        frames.append(frame.collect())
+    frames: list[pl.DataFrame] = [frame.collect() for frame in lazy_frames]
+
+    # Detect and handle schema type conflicts before concatenation
+    if frames:
+        # Build map of column -> set of types across all frames
+        column_types: dict[str, set[pl.DataType]] = {}
+        for frame in frames:
+            for col_name, col_type in zip(frame.columns, frame.schema.values(), strict=False):
+                if col_name not in column_types:
+                    column_types[col_name] = set()
+                column_types[col_name].add(col_type)
+
+        # Detect type conflicts and apply upcasting
+        type_conflicts: dict[str, set[pl.DataType]] = {
+            col: types for col, types in column_types.items() if len(types) > 1
+        }
+
+        if type_conflicts:
+            # Log warning for each type conflict and upcast
+            for col_name, types in type_conflicts.items():
+                type_names = sorted(str(t) for t in types)
+                logger.warning(
+                    f"type conflict in column '{col_name}': {type_names}. "
+                    f"upcasting to safest common type."
+                )
+
+                # Determine safest common type: Int64→Float64, any→Utf8 as last resort
+                has_float = any("Float" in str(t) for t in types)
+                has_int = any("Int" in str(t) for t in types)
+
+                if has_float:
+                    target_type: pl.DataType = pl.Float64()
+                elif has_int:
+                    target_type = pl.Int64()
+                else:
+                    target_type = pl.Utf8()
+
+                # Apply cast to all frames
+                frames = [
+                    frame.with_columns(pl.col(col_name).cast(target_type))
+                    if col_name in frame.columns
+                    else frame
+                    for frame in frames
+                ]
+
+        # Detect structural drift (missing/extra columns)
+        all_columns = set()
+        for frame in frames:
+            all_columns.update(frame.columns)
+
+        for frame in frames:
+            missing_cols = all_columns - set(frame.columns)
+            if missing_cols:
+                logger.warning(
+                    f"structural drift detected: frame missing columns {sorted(missing_cols)}. "
+                    f"they will be filled with nulls."
+                )
 
     # Concatenate with diagonal strategy to handle schema drift
     stacked = pl.concat(frames, how="diagonal")

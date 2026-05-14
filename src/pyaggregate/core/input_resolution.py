@@ -14,6 +14,7 @@ class TableInput:
     """Resolved input for a single table from a single DP."""
 
     dpid: str
+    wpid: str
     msoc_path: Path
     reqtype: str
 
@@ -41,30 +42,29 @@ def filter_catalog(catalog: pl.DataFrame, agg_config: AggTypeConfig) -> pl.DataF
 
 
 def group_inputs_by_table(
-    table_listings: list[tuple[str, str, Path, str]],
-    agg_config: AggTypeConfig,
+    table_listings: list[tuple[str, str, str, Path, str]],
 ) -> dict[str, list[TableInput]]:
     """Group pre-resolved table inputs by table name.
 
-    Takes a list of (table_name, dpid, msoc_path, reqtype) tuples
+    Takes a list of (table_name, dpid, wpid, msoc_path, reqtype) tuples
     (typically from glob operations) and groups them by table name.
 
     Args:
-        table_listings: List of tuples (table_name, dpid, msoc_path, reqtype)
-        agg_config: Aggregation config (unused in grouping, for signature consistency)
+        table_listings: List of tuples (table_name, dpid, wpid, msoc_path, reqtype)
 
     Returns:
         Dictionary mapping table_name -> list of TableInput objects
     """
     result: dict[str, list[TableInput]] = {}
 
-    for table_name, dpid, msoc_path, reqtype in table_listings:
+    for table_name, dpid, wpid, msoc_path, reqtype in table_listings:
         if table_name not in result:
             result[table_name] = []
 
         result[table_name].append(
             TableInput(
                 dpid=dpid,
+                wpid=wpid,
                 msoc_path=msoc_path,
                 reqtype=reqtype,
             )
@@ -88,26 +88,26 @@ def detect_sdd_collisions(inputs: dict[str, list[TableInput]]) -> list[str]:
     warnings: list[str] = []
 
     for table_name, inputs_list in inputs.items():
-        # Group by dpid
-        by_dpid: dict[str, dict[str, list[TableInput]]] = {}
+        # Group by (dpid, wpid)
+        by_dpid_wpid: dict[tuple[str, str], dict[str, list[TableInput]]] = {}
 
         for table_input in inputs_list:
-            dpid = table_input.dpid
-            if dpid not in by_dpid:
-                by_dpid[dpid] = {}
+            key = (table_input.dpid, table_input.wpid)
+            if key not in by_dpid_wpid:
+                by_dpid_wpid[key] = {}
 
             reqtype = table_input.reqtype
-            if reqtype not in by_dpid[dpid]:
-                by_dpid[dpid][reqtype] = []
+            if reqtype not in by_dpid_wpid[key]:
+                by_dpid_wpid[key][reqtype] = []
 
-            by_dpid[dpid][reqtype].append(table_input)
+            by_dpid_wpid[key][reqtype].append(table_input)
 
-        # Check for collisions: same dpid with both qar and qmr
-        for dpid, by_reqtype in by_dpid.items():
+        # Check for collisions: same (dpid, wpid) with both qar and qmr
+        for (dpid, wpid), by_reqtype in by_dpid_wpid.items():
             if "qar" in by_reqtype and "qmr" in by_reqtype:
                 warnings.append(
                     f"collision detected in {table_name}: same filename from both qar and qmr "
-                    f"for dpid={dpid}. both rows will be included in stacked output."
+                    f"for dpid={dpid}, wpid={wpid}. both rows will be included in stacked output."
                 )
 
     return warnings

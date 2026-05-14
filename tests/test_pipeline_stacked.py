@@ -56,8 +56,8 @@ class TestAggregateTableBasic:
     def test_aggregate_table_stacked_has_dpid(self, dpid_map_fixture: pl.DataFrame) -> None:
         """Stacked output preserves dpid column with real values."""
         table_inputs = [
-            TableInput("aeos", Path("/data/aeos/msoc"), "qar"),
-            TableInput("cms", Path("/data/cms/msoc"), "qar"),
+            TableInput("aeos", "wp041", Path("/data/aeos/msoc"), "qar"),
+            TableInput("cms", "wp041", Path("/data/cms/msoc"), "qar"),
         ]
 
         result = aggregate_table(
@@ -76,7 +76,7 @@ class TestAggregateTableBasic:
     def test_aggregate_table_masked_has_surrogate(self, dpid_map_fixture: pl.DataFrame) -> None:
         """Masked output has surrogate_id, no dpid."""
         table_inputs = [
-            TableInput("aeos", Path("/data/aeos/msoc"), "qar"),
+            TableInput("aeos", "wp041", Path("/data/aeos/msoc"), "qar"),
         ]
 
         result = aggregate_table(
@@ -97,8 +97,8 @@ class TestAggregateTableBasic:
     ) -> None:
         """Stacked and masked have same row count."""
         table_inputs = [
-            TableInput("aeos", Path("/data/aeos/msoc"), "qar"),
-            TableInput("cms", Path("/data/cms/msoc"), "qar"),
+            TableInput("aeos", "wp041", Path("/data/aeos/msoc"), "qar"),
+            TableInput("cms", "wp041", Path("/data/cms/msoc"), "qar"),
         ]
 
         result = aggregate_table(
@@ -115,7 +115,7 @@ class TestAggregateTableBasic:
     def test_aggregate_table_single_dp(self, dpid_map_fixture: pl.DataFrame) -> None:
         """Single DP input produces correct output."""
         table_inputs = [
-            TableInput("kpsc", Path("/data/kpsc/msoc"), "qar"),
+            TableInput("kpsc", "wp041", Path("/data/kpsc/msoc"), "qar"),
         ]
 
         result = aggregate_table(
@@ -153,7 +153,7 @@ class TestAggregateTableBasic:
     ) -> None:
         """Aggregation preserves columns other than dpid/surrogate_id."""
         table_inputs = [
-            TableInput("aeos", Path("/data/aeos/msoc"), "qar"),
+            TableInput("aeos", "wp041", Path("/data/aeos/msoc"), "qar"),
         ]
 
         result = aggregate_table(
@@ -173,9 +173,9 @@ class TestAggregateTableBasic:
     def test_aggregate_table_three_dps(self, dpid_map_fixture: pl.DataFrame) -> None:
         """Three DPs each with 5 rows produces 15-row stacked output."""
         table_inputs = [
-            TableInput("aeos", Path("/data/aeos/msoc"), "qar"),
-            TableInput("cms", Path("/data/cms/msoc"), "qar"),
-            TableInput("kpsc", Path("/data/kpsc/msoc"), "qar"),
+            TableInput("aeos", "wp041", Path("/data/aeos/msoc"), "qar"),
+            TableInput("cms", "wp041", Path("/data/cms/msoc"), "qar"),
+            TableInput("kpsc", "wp041", Path("/data/kpsc/msoc"), "qar"),
         ]
 
         result = aggregate_table(
@@ -218,8 +218,8 @@ class TestAggregateTableSchemaDrift:
             return data.lazy()
 
         table_inputs = [
-            TableInput("aeos", Path("/data/aeos/msoc"), "qar"),
-            TableInput("cms", Path("/data/cms/msoc"), "qar"),
+            TableInput("aeos", "wp041", Path("/data/aeos/msoc"), "qar"),
+            TableInput("cms", "wp041", Path("/data/cms/msoc"), "qar"),
         ]
 
         result = aggregate_table(

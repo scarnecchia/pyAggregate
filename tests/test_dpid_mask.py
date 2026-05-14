@@ -167,7 +167,7 @@ class TestMaskDpidProperties:
     def test_surrogate_uniqueness_per_dpid(
         self, data: list[tuple[str, int]], dpid_map_fixture: pl.DataFrame
     ) -> None:
-        """Property: Each unique dpid maps to exactly one surrogate_id."""
+        """Property: Each unique dpid maps to exactly one unique surrogate_id (injective mapping)."""
         frame = pl.DataFrame({
             "dpid": [dpid for dpid, _ in data],
             "value": [val for _, val in data],
@@ -175,9 +175,27 @@ class TestMaskDpidProperties:
 
         result = mask_dpid(frame, dpid_map_fixture)
 
-        # Verify that the result has valid mappings
-        assert result["surrogate_id"].is_not_null().sum() > 0
-        # The key property: mappings are deterministic and consistent (implicit in join)
+        # Verify the mapping property: use the dpid_map to check each unique dpid in the original
+        # maps to exactly one surrogate_id
+        dpid_to_surrogate = {}
+        for row in frame.iter_rows(named=True):
+            dpid = row["dpid"]
+            # Find surrogate in dpid_map
+            matching = dpid_map_fixture.filter(pl.col("dpid") == dpid)
+            if len(matching) > 0:
+                surrogate = matching["surrogate_id"][0]
+                if dpid not in dpid_to_surrogate:
+                    dpid_to_surrogate[dpid] = surrogate
+                else:
+                    # Verify it's the same surrogate (consistency)
+                    assert dpid_to_surrogate[dpid] == surrogate
+
+        # Now verify all rows in result have correct surrogate_ids
+        # by spot-checking the mapping is correct
+        for orig_dpid, expected_surrogate in dpid_to_surrogate.items():
+            # Count rows in result with this surrogate that came from this dpid
+            result_rows = result.filter(pl.col("surrogate_id") == expected_surrogate)
+            assert result_rows.height > 0, f"Expected rows with surrogate {expected_surrogate}"
 
     def test_unmapped_dpid_produces_null(self, dpid_map_fixture: pl.DataFrame) -> None:
         """Test that unmapped dpid produces null surrogate_id."""

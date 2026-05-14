@@ -68,7 +68,7 @@ def read_table(
     return lazy_frame
 
 
-def read_metadata(sas_path: Path) -> dict[str, int | str]:
+def read_metadata(sas_path: Path) -> dict[str, object]:
     """Read metadata from SAS file without loading data.
 
     Uses ScanReadstat for efficient metadata-only reads.
@@ -85,17 +85,14 @@ def read_metadata(sas_path: Path) -> dict[str, int | str]:
 
 def glob_tables(
     msoc_path: Path,
-    exclude_subdirs: tuple[str, ...] = ("scdm_snapshot",),
 ) -> list[str]:
     """List .sas7bdat table names directly under msoc_path.
 
-    Scans msoc_path for .sas7bdat files (not in subdirectories),
-    excludes files under exclude_subdirs, and returns table names
-    (stem without extension).
+    Scans msoc_path for .sas7bdat files (not in subdirectories)
+    and returns table names (stem without extension).
 
     Args:
         msoc_path: Path to msoc directory
-        exclude_subdirs: Subdirectory names to exclude (default: scdm_snapshot)
 
     Returns:
         List of table names (sorted)
