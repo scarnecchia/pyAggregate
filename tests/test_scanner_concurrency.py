@@ -2,9 +2,6 @@
 
 from pathlib import Path
 
-import pytest
-
-from pyaggregate.config import AppConfig, OutputConfig, ScanConfig, StateConfig
 from pyaggregate.io.scanner import acquire_scan_lock, release_scan_lock
 
 
@@ -72,9 +69,7 @@ class TestScanLockAcquisition:
         # Clean up
         release_scan_lock(fd)
 
-    def test_acquire_lock_persistent_across_calls(
-        self, tmp_path: Path
-    ) -> None:
+    def test_acquire_lock_persistent_across_calls(self, tmp_path: Path) -> None:
         """Lock file persists across separate acquisition calls."""
         lock_path = tmp_path / "persistent.lock"
 
@@ -97,13 +92,15 @@ class TestScanLockAcquisition:
 class TestScannerLockIntegration:
     """Test scanner integration with lock guard."""
 
-    def test_run_scan_with_lock_held_exits_cleanly(
-        self, tmp_path: Path
-    ) -> None:
+    def test_run_scan_with_lock_held_exits_cleanly(self, tmp_path: Path) -> None:
         """Scanner exits 0 with log message when lock is already held."""
-        from pyaggregate.config import AppConfig, OutputConfig, ScanConfig, StateConfig
+        from pyaggregate.config import (
+            AppConfig,
+            OutputConfig,
+            ScanConfig,
+            StateConfig,
+        )
         from pyaggregate.io.catalog_store import CatalogStore
-        from pyaggregate.io.scanner import run_scan
 
         lock_path = tmp_path / "test.lock"
         catalog_db = tmp_path / "test.db"

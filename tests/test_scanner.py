@@ -1,15 +1,11 @@
 """Tests for filesystem scanner and catalog population."""
 
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
-import pytest
-
 from pyaggregate.config import AppConfig, OutputConfig, ScanConfig, StateConfig
-from pyaggregate.core.paths import RequestId
 from pyaggregate.io.catalog_store import CatalogStore
-from pyaggregate.io.scanner import ScanResult, run_scan, run_scan_dry
+from pyaggregate.io.scanner import run_scan, run_scan_dry
 
 
 @dataclass
@@ -24,9 +20,7 @@ class TreeSpec:
     has_scdm: bool = False
 
 
-def build_request_tree(
-    tmp_path: Path, specs: list[TreeSpec]
-) -> tuple[Path, Path]:
+def build_request_tree(tmp_path: Path, specs: list[TreeSpec]) -> tuple[Path, Path]:
     """Build a realistic requests tree from a specification.
 
     Args:
@@ -42,15 +36,9 @@ def build_request_tree(
     for spec in specs:
         # Map reqtype to directory (qar -> qa, qmr -> qm)
         qa_or_qm = "qa" if spec.reqtype == "qar" else "qm"
-        version_dir_name = (
-            f"soc_{spec.reqtype}_{spec.wpid}_{spec.dpid}_{spec.verid}"
-        )
+        version_dir_name = f"soc_{spec.reqtype}_{spec.wpid}_{spec.dpid}_{spec.verid}"
         workplan_dir = (
-            requests_root
-            / qa_or_qm
-            / spec.dpid
-            / "packages"
-            / f"soc_{spec.reqtype}_{spec.wpid}"
+            requests_root / qa_or_qm / spec.dpid / "packages" / f"soc_{spec.reqtype}_{spec.wpid}"
         )
         version_dir = workplan_dir / version_dir_name
 
@@ -70,9 +58,7 @@ def build_request_tree(
     return requests_root, catalog_db
 
 
-def create_config(
-    requests_root: Path, catalog_db: Path, tmp_path: Path
-) -> AppConfig:
+def create_config(requests_root: Path, catalog_db: Path, tmp_path: Path) -> AppConfig:
     """Create test AppConfig."""
     return AppConfig(
         scan=ScanConfig(requests_root=requests_root),
@@ -188,9 +174,7 @@ class TestScannerBasics:
             assert aeos_row is not None
             assert aeos_row["has_scdm"] == 0
 
-    def test_scan_unparseable_directory_logged_and_skipped(
-        self, tmp_path: Path
-    ) -> None:
+    def test_scan_unparseable_directory_logged_and_skipped(self, tmp_path: Path) -> None:
         """AC2.5: Unparseable directory name logged at WARN, scan continues."""
         specs = [
             TreeSpec("aeos", "qar", "wp041", "v01", has_msoc=True),
@@ -198,9 +182,7 @@ class TestScannerBasics:
         requests_root, catalog_db = build_request_tree(tmp_path, specs)
 
         # Add an unparseable directory (missing verid)
-        bad_workplan = (
-            requests_root / "qa" / "aeos" / "packages" / "soc_qar_wp041"
-        )
+        bad_workplan = requests_root / "qa" / "aeos" / "packages" / "soc_qar_wp041"
         bad_version_dir = bad_workplan / "soc_qar_wp041_aeos"
         bad_version_dir.mkdir(parents=True, exist_ok=True)
         (bad_version_dir / "msoc").mkdir(parents=True, exist_ok=True)
@@ -224,9 +206,7 @@ class TestScannerBasics:
 class TestScannerIdempotence:
     """Test idempotence property (AC2.3)."""
 
-    def test_scan_idempotence_no_changes_on_rerun(
-        self, tmp_path: Path
-    ) -> None:
+    def test_scan_idempotence_no_changes_on_rerun(self, tmp_path: Path) -> None:
         """AC2.3: Running scanner twice produces same snapshot (except observed_at)."""
         specs = [
             TreeSpec("aeos", "qar", "wp041", "v01", has_msoc=True),
@@ -253,8 +233,7 @@ class TestScannerIdempotence:
         # Verify snapshots are identical except observed_at
         assert len(snap1) == len(snap2)
 
-        cols_to_check = ["dpid", "wpid", "reqtype", "verid", "msoc_path",
-                        "has_scdm"]
+        cols_to_check = ["dpid", "wpid", "reqtype", "verid", "msoc_path", "has_scdm"]
         snap1_subset = snap1.select(cols_to_check).sort("dpid")
         snap2_subset = snap2.select(cols_to_check).sort("dpid")
 
@@ -323,14 +302,10 @@ class TestScannerMultipleDPIDs:
             assert mapped_dpids == {"aeos", "cms", "fake_dp"}
 
             # Verify surrogate IDs are sequential
-            surrogates = sorted(
-                dpid_map["surrogate_id"].to_list()
-            )
+            surrogates = sorted(dpid_map["surrogate_id"].to_list())
             assert surrogates == ["dp_001", "dp_002", "dp_003"]
 
-    def test_scan_multiple_dpids_with_multiple_workplans(
-        self, tmp_path: Path
-    ) -> None:
+    def test_scan_multiple_dpids_with_multiple_workplans(self, tmp_path: Path) -> None:
         """Scan multiple DPIDs with multiple workplans per DPID."""
         specs = [
             # aeos with 2 workplans, 3 reqtypes

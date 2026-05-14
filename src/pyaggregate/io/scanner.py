@@ -9,7 +9,10 @@ from pathlib import Path
 from uuid import uuid4
 
 from pyaggregate.config import AppConfig
-from pyaggregate.core.paths import pick_latest_approved, parse_request_id
+from pyaggregate.core.paths import (
+    parse_request_id,
+    pick_latest_approved,
+)
 from pyaggregate.io.catalog_store import CatalogStore
 
 logger = logging.getLogger(__name__)
@@ -34,7 +37,7 @@ def acquire_scan_lock(lock_path: Path) -> int | None:
     """
     try:
         # Open lock file for writing, create if doesn't exist
-        fd_obj = open(lock_path, "w")
+        fd_obj = open(lock_path, "w")  # noqa: SIM115
         try:
             # Try to acquire exclusive non-blocking lock
             fcntl.flock(fd_obj, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -94,9 +97,7 @@ def run_scan(config: AppConfig, store: CatalogStore) -> ScanResult:
     errors = 0
 
     try:
-        rows_upserted, packages_skipped, errors = _scan_requests_tree(
-            config, store
-        )
+        rows_upserted, packages_skipped, errors = _scan_requests_tree(config, store)
         store.record_scan_end(scan_id, "success")
     except Exception as e:
         logger.exception("scan failed: %s", e)
@@ -139,7 +140,6 @@ def run_scan_dry(config: AppConfig, store: CatalogStore) -> list[str]:
             if not dpid_dir.is_dir():
                 continue
 
-            dpid = dpid_dir.name
             packages_dir = dpid_dir / "packages"
             if not packages_dir.exists():
                 continue
@@ -172,9 +172,7 @@ def run_scan_dry(config: AppConfig, store: CatalogStore) -> list[str]:
     return changes
 
 
-def _scan_requests_tree(
-    config: AppConfig, store: CatalogStore
-) -> tuple[int, int, int]:
+def _scan_requests_tree(config: AppConfig, store: CatalogStore) -> tuple[int, int, int]:
     """Internal: walk tree and populate catalog.
 
     Args:
@@ -194,9 +192,7 @@ def _scan_requests_tree(
         return rows_upserted, packages_skipped, errors
 
     # Group by (dpid, wpid, reqtype) to find latest approved version
-    grouped: dict[tuple[str, str, str], list[tuple[Path, bool]]] = defaultdict(
-        list
-    )
+    grouped: dict[tuple[str, str, str], list[tuple[Path, bool]]] = defaultdict(list)
 
     # Iterate qa and qm directories
     for qa_or_qm in ["qa", "qm"]:
@@ -208,7 +204,6 @@ def _scan_requests_tree(
             if not dpid_dir.is_dir():
                 continue
 
-            dpid = dpid_dir.name
             packages_dir = dpid_dir / "packages"
             if not packages_dir.exists():
                 continue
@@ -237,15 +232,12 @@ def _scan_requests_tree(
                     grouped[key].append((version_dir, has_msoc))
 
     # For each group, pick the latest approved version
-    for (dpid, wpid, reqtype), entries in grouped.items():
+    for (_dpid, _wpid, _reqtype), entries in grouped.items():
         # Convert to (RequestId, has_msoc) tuples for pick_latest_approved
         rid_entries = [
-            (parse_request_id(version_dir.name), has_msoc)
-            for version_dir, has_msoc in entries
+            (parse_request_id(version_dir.name), has_msoc) for version_dir, has_msoc in entries
         ]
-        rid_entries = [
-            (rid, has_msoc) for rid, has_msoc in rid_entries if rid is not None
-        ]
+        rid_entries = [(rid, has_msoc) for rid, has_msoc in rid_entries if rid is not None]
 
         # Pick the latest approved version
         winning_rid = pick_latest_approved(rid_entries)
