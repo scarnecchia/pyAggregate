@@ -190,10 +190,12 @@ class TestMaskDpidProperties:
                     # Verify it's the same surrogate (consistency)
                     assert dpid_to_surrogate[dpid] == surrogate
 
-        # Now verify all rows in result have correct surrogate_ids
-        # by spot-checking the mapping is correct
-        for orig_dpid, expected_surrogate in dpid_to_surrogate.items():
-            # Count rows in result with this surrogate that came from this dpid
+        surrogates = list(dpid_to_surrogate.values())
+        assert len(surrogates) == len(set(surrogates)), (
+            f"Mapping is not injective: {dpid_to_surrogate}"
+        )
+
+        for _orig_dpid, expected_surrogate in dpid_to_surrogate.items():
             result_rows = result.filter(pl.col("surrogate_id") == expected_surrogate)
             assert result_rows.height > 0, f"Expected rows with surrogate {expected_surrogate}"
 

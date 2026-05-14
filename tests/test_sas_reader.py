@@ -179,7 +179,6 @@ class TestGlobTables:
 
         assert result == ["Patient"]
 
-
     def test_glob_tables_empty_msoc(self, tmp_path: Path) -> None:
         """glob_tables returns empty list for empty msoc_path."""
         msoc_path = tmp_path / "msoc"
