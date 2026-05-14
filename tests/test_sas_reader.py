@@ -4,7 +4,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import polars as pl
-import pytest
 
 from pyaggregate.io.sas_reader import (
     glob_scdm_tables,

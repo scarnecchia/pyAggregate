@@ -68,7 +68,7 @@ def read_table(
     return lazy_frame
 
 
-def read_metadata(sas_path: Path) -> dict:
+def read_metadata(sas_path: Path) -> dict[str, int | str]:
     """Read metadata from SAS file without loading data.
 
     Uses ScanReadstat for efficient metadata-only reads.
