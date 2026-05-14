@@ -103,6 +103,9 @@ def run(
         # Determine which agg_types to run
         agg_types_to_run = type if type else list(cfg.agg_types.keys())
 
+        # Track if any agg_type had partial failure
+        has_any_partial_failure = False
+
         for agg_type in agg_types_to_run:
             if agg_type not in cfg.agg_types:
                 typer.echo(
@@ -136,6 +139,7 @@ def run(
 
             # Aggregate each table
             table_outputs: dict[str, dict[str, object]] = {}
+            tables_failed: list[str] = []
             for table_name, table_inputs_list in table_inputs_dict.items():
                 try:
                     outputs = aggregate_table(
@@ -151,7 +155,13 @@ def run(
                         f"warning: failed to aggregate table {table_name}: {e}",
                         err=True,
                     )
+                    tables_failed.append(table_name)
                     # Continue with remaining tables (partial success)
+
+            # Track exit code for this agg_type
+            has_partial_failure = len(tables_failed) > 0 and len(table_outputs) > 0
+            if has_partial_failure:
+                has_any_partial_failure = True
 
             # Write outputs
             if table_outputs:
@@ -168,8 +178,25 @@ def run(
                     f"successfully wrote {len(table_outputs)} tables to "
                     f"{output_root_path / agg_type / run_id}"
                 )
+                if has_partial_failure:
+                    typer.echo(
+                        f"warning: {len(tables_failed)} tables failed to aggregate for {agg_type}",
+                        err=True,
+                    )
             else:
-                typer.echo(f"warning: no tables aggregated for {agg_type}", err=True)
+                if tables_failed:
+                    typer.echo(
+                        f"failed to run {agg_type}: all {len(tables_failed)} "
+                        f"tables failed to aggregate",
+                        err=True,
+                    )
+                    raise typer.Exit(code=1)
+                else:
+                    typer.echo(f"warning: no tables aggregated for {agg_type}", err=True)
+
+        # Exit with code 2 if any agg_type had partial failure
+        if has_any_partial_failure:
+            raise typer.Exit(code=2)
 
     except typer.Exit:
         raise
