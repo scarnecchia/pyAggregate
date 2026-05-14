@@ -47,6 +47,7 @@ select = ["E", "F", "I", "UP", "B", "SIM", "TCH"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["E501", "SIM117", "E402", "B904", "SIM105", "SIM401", "B905", "TC001", "F841"]
+"src/pyaggregate/cli.py" = ["B008"]
 
 [tool.mypy]
 python_version = "3.11"

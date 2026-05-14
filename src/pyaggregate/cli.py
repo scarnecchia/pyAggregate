@@ -1,7 +1,11 @@
 # pattern: Imperative Shell
 """CLI entry point for pyaggregate."""
 
+from pathlib import Path
+
 import typer
+
+from pyaggregate.config import resolve_config_path
 
 app = typer.Typer(
     name="pyaggregate",
@@ -12,42 +16,90 @@ app = typer.Typer(
 
 
 @app.command()
-def scan() -> None:
+def scan(
+    config: Path | None = typer.Option(
+        None,
+        "--config",
+        envvar="PYAGGREGATE_CONFIG",
+        help="Path to config file. Can be set via PYAGGREGATE_CONFIG env var.",
+    ),
+) -> None:
     """Walk the requests tree and update the catalog with latest approved submissions."""
-    typer.echo("scan: not yet implemented")
+    _config_path = resolve_config_path(config)
+    typer.echo(f"scan: not yet implemented (config: {_config_path})")
     raise typer.Exit(code=1)
 
 
 @app.command()
-def run() -> None:
+def run(
+    config: Path | None = typer.Option(
+        None,
+        "--config",
+        envvar="PYAGGREGATE_CONFIG",
+        help="Path to config file. Can be set via PYAGGREGATE_CONFIG env var.",
+    ),
+) -> None:
     """Produce aggregated parquet outputs for QA, QM, and/or SDD."""
-    typer.echo("run: not yet implemented")
+    _config_path = resolve_config_path(config)
+    typer.echo(f"run: not yet implemented (config: {_config_path})")
     raise typer.Exit(code=1)
 
 
 @app.command(name="init-db")
-def init_db() -> None:
+def init_db(
+    config: Path | None = typer.Option(
+        None,
+        "--config",
+        envvar="PYAGGREGATE_CONFIG",
+        help="Path to config file. Can be set via PYAGGREGATE_CONFIG env var.",
+    ),
+) -> None:
     """Create the sqlite catalog and dpid_map tables."""
-    typer.echo("init-db: not yet implemented")
+    _config_path = resolve_config_path(config)
+    typer.echo(f"init-db: not yet implemented (config: {_config_path})")
     raise typer.Exit(code=1)
 
 
 @app.command(name="show-catalog")
-def show_catalog() -> None:
+def show_catalog(
+    config: Path | None = typer.Option(
+        None,
+        "--config",
+        envvar="PYAGGREGATE_CONFIG",
+        help="Path to config file. Can be set via PYAGGREGATE_CONFIG env var.",
+    ),
+) -> None:
     """Display the current catalog contents."""
-    typer.echo("show-catalog: not yet implemented")
+    _config_path = resolve_config_path(config)
+    typer.echo(f"show-catalog: not yet implemented (config: {_config_path})")
     raise typer.Exit(code=1)
 
 
 @app.command(name="show-dpid-map")
-def show_dpid_map() -> None:
+def show_dpid_map(
+    config: Path | None = typer.Option(
+        None,
+        "--config",
+        envvar="PYAGGREGATE_CONFIG",
+        help="Path to config file. Can be set via PYAGGREGATE_CONFIG env var.",
+    ),
+) -> None:
     """Display the DPID surrogate mapping."""
-    typer.echo("show-dpid-map: not yet implemented")
+    _config_path = resolve_config_path(config)
+    typer.echo(f"show-dpid-map: not yet implemented (config: {_config_path})")
     raise typer.Exit(code=1)
 
 
 @app.command(name="show-scans")
-def show_scans() -> None:
+def show_scans(
+    config: Path | None = typer.Option(
+        None,
+        "--config",
+        envvar="PYAGGREGATE_CONFIG",
+        help="Path to config file. Can be set via PYAGGREGATE_CONFIG env var.",
+    ),
+) -> None:
     """Display the scan log history."""
-    typer.echo("show-scans: not yet implemented")
+    _config_path = resolve_config_path(config)
+    typer.echo(f"show-scans: not yet implemented (config: {_config_path})")
     raise typer.Exit(code=1)
