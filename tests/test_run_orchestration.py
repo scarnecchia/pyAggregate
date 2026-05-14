@@ -465,6 +465,35 @@ class TestRunOrchestration:
         # Partial failure should exit with code 2
         assert result.exit_code == 2
 
+    def test_run_full_failure_exit_code_1(
+        self,
+        cli_runner: CliRunner,
+        test_config: tuple[Path, AppConfig],
+        mock_patches,
+    ) -> None:
+        """Full failure: when all tables fail, run exits with code 1."""
+        config_file, config = test_config
+
+        def side_effect_agg(*args, **kwargs):
+            raise ValueError("Simulated read error for all tables")
+
+        # Override the aggregate_table mock to fail for all tables
+        mock_patches["agg"].side_effect = side_effect_agg
+
+        result = cli_runner.invoke(
+            app,
+            [
+                "run",
+                "--type",
+                "qa",
+                "--config",
+                str(config_file),
+            ],
+        )
+
+        # Full failure should exit with code 1
+        assert result.exit_code == 1
+
     def test_run_updates_latest_symlink_on_success(
         self,
         cli_runner: CliRunner,

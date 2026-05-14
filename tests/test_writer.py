@@ -269,6 +269,41 @@ def test_write_run_summary_json(tmp_path, table_outputs, dpid_map):
     assert summary["exit_code"] == 0
 
 
+def test_write_run_summary_json_with_skipped_tables(tmp_path, table_outputs, dpid_map):
+    """Test that run_summary.json includes tables_skipped from CLI failures."""
+    output_root = tmp_path / "outputs"
+
+    tables_skipped = [
+        {
+            "table": "bad_table",
+            "error_class": "parse_error",
+            "detail": "ValueError: invalid column",
+        }
+    ]
+
+    write_run(
+        output_root=output_root,
+        agg_type="qa",
+        run_id="2026-05-14",
+        table_outputs=table_outputs,
+        dpid_map_frame=dpid_map,
+        update_latest=False,
+        tables_skipped=tables_skipped,
+    )
+
+    summary_path = output_root / "qa" / "2026-05-14" / "run_summary.json"
+    assert summary_path.exists()
+
+    with open(summary_path) as f:
+        summary = json.load(f)
+
+    # With skipped tables, exit_code should be 2 (partial failure)
+    assert summary["exit_code"] == 2
+    assert len(summary["tables_skipped"]) == 1
+    assert summary["tables_skipped"][0]["table"] == "bad_table"
+    assert summary["tables_skipped"][0]["error_class"] == "parse_error"
+
+
 def test_check_run_exists_returns_true(tmp_path, table_outputs, dpid_map):
     """Test that check_run_exists returns True for existing run."""
     output_root = tmp_path / "outputs"
@@ -320,3 +355,45 @@ def test_write_run_cleans_orphaned_tmp_files(tmp_path, table_outputs, dpid_map):
 
     # But real files should exist
     assert (run_dir / "stacked" / "ae.parquet").exists()
+
+
+def test_write_run_empty_masked_surrogates(tmp_path, dpid_map):
+    """Test edge case: no masked outputs (masked_surrogates is empty).
+
+    Ensures dpid_map.csv can be written even when no surrogates are used.
+    This tests the fix for the critical issue where pl.DataFrame(columns=...)
+    would crash.
+    """
+    output_root = tmp_path / "outputs"
+
+    # Create table_outputs with empty/no masked dataframes
+    table_outputs = {
+        "ae": {
+            "stacked": pl.DataFrame(
+                {
+                    "dpid": ["aeos"],
+                    "col1": [1],
+                }
+            ),
+            # No masked output, or masked with no surrogate_id column
+        }
+    }
+
+    # Should not raise an exception
+    write_run(
+        output_root=output_root,
+        agg_type="qa",
+        run_id="2026-05-14",
+        table_outputs=table_outputs,
+        dpid_map_frame=dpid_map,
+        update_latest=False,
+    )
+
+    # dpid_map.csv should exist and be empty (schema preserved)
+    dpid_map_path = output_root / "qa" / "2026-05-14" / "dpid_map.csv"
+    assert dpid_map_path.exists()
+
+    written_map = pl.read_csv(dpid_map_path)
+    # Should have the right columns but 0 rows
+    assert "surrogate_id" in written_map.columns
+    assert len(written_map) == 0

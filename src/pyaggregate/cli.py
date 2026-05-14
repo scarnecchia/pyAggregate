@@ -24,6 +24,30 @@ CONFIG_OPTION = typer.Option(
 )
 
 
+def classify_exception(exc: Exception) -> str:
+    """Classify an exception into structured error categories.
+
+    Maps exceptions to literal error classes that operators can filter on
+    without parsing error messages. Helps distinguish source vs parsing issues.
+
+    Args:
+        exc: The exception to classify
+
+    Returns:
+        One of: "source_missing", "source_permission", "parse_error",
+        "arrow_error", or "unknown"
+    """
+    if isinstance(exc, FileNotFoundError):
+        return "source_missing"
+    if isinstance(exc, PermissionError):
+        return "source_permission"
+    if isinstance(exc, (ValueError, TypeError)):
+        return "parse_error"
+    if exc.__class__.__module__.startswith("pyarrow"):
+        return "arrow_error"
+    return "unknown"
+
+
 @app.command()
 def scan(
     config: Path | None = CONFIG_OPTION,
@@ -72,9 +96,9 @@ def run(
         help="Path to alternate output root",
     ),
     run_id: str | None = typer.Option(None, help="Custom run ID (default: today's date)"),
-    no_update_latest: bool = typer.Option(
-        False,
-        help="Skip updating the latest symlink",
+    update_latest: bool = typer.Option(
+        True,
+        help="Update the latest symlink after successful run",
     ),
     force: bool = typer.Option(False, help="Overwrite existing run directory"),
     config: Path | None = CONFIG_OPTION,
@@ -139,7 +163,7 @@ def run(
 
             # Aggregate each table
             table_outputs: dict[str, dict[str, object]] = {}
-            tables_failed: list[str] = []
+            tables_skipped: list[dict] = []
             for table_name, table_inputs_list in table_inputs_dict.items():
                 try:
                     outputs = aggregate_table(
@@ -151,15 +175,22 @@ def run(
                     )
                     table_outputs[table_name] = outputs
                 except Exception as e:
+                    error_class = classify_exception(e)
                     typer.echo(
                         f"warning: failed to aggregate table {table_name}: {e}",
                         err=True,
                     )
-                    tables_failed.append(table_name)
+                    tables_skipped.append(
+                        {
+                            "table": table_name,
+                            "error_class": error_class,
+                            "detail": str(e),
+                        }
+                    )
                     # Continue with remaining tables (partial success)
 
             # Track exit code for this agg_type
-            has_partial_failure = len(tables_failed) > 0 and len(table_outputs) > 0
+            has_partial_failure = len(tables_skipped) > 0 and len(table_outputs) > 0
             if has_partial_failure:
                 has_any_partial_failure = True
 
@@ -171,7 +202,8 @@ def run(
                     run_id=run_id,
                     table_outputs=table_outputs,
                     dpid_map_frame=dpid_map_df,
-                    update_latest=not no_update_latest,
+                    update_latest=update_latest,
+                    tables_skipped=tables_skipped,
                 )
 
                 typer.echo(
@@ -180,13 +212,13 @@ def run(
                 )
                 if has_partial_failure:
                     typer.echo(
-                        f"warning: {len(tables_failed)} tables failed to aggregate for {agg_type}",
+                        f"warning: {len(tables_skipped)} tables failed to aggregate for {agg_type}",
                         err=True,
                     )
             else:
-                if tables_failed:
+                if tables_skipped:
                     typer.echo(
-                        f"failed to run {agg_type}: all {len(tables_failed)} "
+                        f"failed to run {agg_type}: all {len(tables_skipped)} "
                         f"tables failed to aggregate",
                         err=True,
                     )
