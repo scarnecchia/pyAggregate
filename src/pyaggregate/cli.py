@@ -65,12 +65,117 @@ def scan(
 
 @app.command()
 def run(
+    type: list[str] = typer.Option(None, "--type", help="Aggregation type(s) to run"),
+    catalog: Path | None = typer.Option(None, help="Path to alternate catalog db"),
+    output_root: Path | None = typer.Option(
+        None,
+        help="Path to alternate output root",
+    ),
+    run_id: str | None = typer.Option(None, help="Custom run ID (default: today's date)"),
+    no_update_latest: bool = typer.Option(
+        False,
+        help="Skip updating the latest symlink",
+    ),
+    force: bool = typer.Option(False, help="Overwrite existing run directory"),
     config: Path | None = CONFIG_OPTION,
 ) -> None:
     """Produce aggregated parquet outputs for QA, QM, and/or SDD."""
-    _config_path = resolve_config_path(config)
-    typer.echo(f"run: not yet implemented (config: {_config_path})")
-    raise typer.Exit(code=1)
+    try:
+        from datetime import date
+
+        from pyaggregate.core.pipeline import aggregate_table
+        from pyaggregate.io.input_resolver import resolve_inputs
+        from pyaggregate.io.sas_reader import read_table
+        from pyaggregate.io.writer import check_run_exists, write_run
+
+        # Load config and resolve paths
+        config_path = resolve_config_path(config)
+        cfg = load_config(config_path)
+
+        # Resolve catalog and output paths
+        catalog_db = catalog if catalog is not None else cfg.state.catalog_db
+        output_root_path = output_root if output_root is not None else cfg.output.output_root
+
+        # Default run_id to today's date
+        if run_id is None:
+            run_id = date.today().isoformat()
+
+        # Determine which agg_types to run
+        agg_types_to_run = type if type else list(cfg.agg_types.keys())
+
+        for agg_type in agg_types_to_run:
+            if agg_type not in cfg.agg_types:
+                typer.echo(
+                    f"failed to run {agg_type}: aggregation type not configured",
+                    err=True,
+                )
+                raise typer.Exit(code=1)
+
+            agg_config = cfg.agg_types[agg_type]
+
+            # Check if run directory exists
+            if check_run_exists(output_root_path, agg_type, run_id) and not force:
+                typer.echo(
+                    f"failed to run {agg_type}: run directory already exists "
+                    f"({output_root_path / agg_type / run_id}). Use --force to overwrite.",
+                    err=True,
+                )
+                raise typer.Exit(code=1)
+
+            # Open catalog store and snapshot data
+            with CatalogStore(catalog_db) as store:
+                catalog_df = store.snapshot_catalog()
+                dpid_map_df = store.snapshot_dpid_map()
+
+            # Resolve inputs
+            table_inputs_dict = resolve_inputs(catalog_df, agg_config)
+
+            if not table_inputs_dict:
+                typer.echo(f"warning: no inputs found for {agg_type}")
+                continue
+
+            # Aggregate each table
+            table_outputs: dict[str, dict[str, object]] = {}
+            for table_name, table_inputs_list in table_inputs_dict.items():
+                try:
+                    outputs = aggregate_table(
+                        table_inputs=table_inputs_list,
+                        dpid_map=dpid_map_df,
+                        agg_config=agg_config,
+                        table_name=table_name,
+                        reader_fn=read_table,
+                    )
+                    table_outputs[table_name] = outputs
+                except Exception as e:
+                    typer.echo(
+                        f"warning: failed to aggregate table {table_name}: {e}",
+                        err=True,
+                    )
+                    # Continue with remaining tables (partial success)
+
+            # Write outputs
+            if table_outputs:
+                write_run(
+                    output_root=output_root_path,
+                    agg_type=agg_type,
+                    run_id=run_id,
+                    table_outputs=table_outputs,
+                    dpid_map_frame=dpid_map_df,
+                    update_latest=not no_update_latest,
+                )
+
+                typer.echo(
+                    f"successfully wrote {len(table_outputs)} tables to "
+                    f"{output_root_path / agg_type / run_id}"
+                )
+            else:
+                typer.echo(f"warning: no tables aggregated for {agg_type}", err=True)
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        typer.echo(f"failed to run: {e}", err=True)
+        raise typer.Exit(code=1) from e
 
 
 @app.command(name="init-db")

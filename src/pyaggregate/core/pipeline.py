@@ -71,17 +71,11 @@ def compute_rollup(
 
     # Apply groupby and aggregation
     if rollup_keys_final:
-        agg_exprs = [
-            getattr(pl.col(col), agg_fn)()
-            for col, agg_fn in rollup_aggs_final.items()
-        ]
+        agg_exprs = [getattr(pl.col(col), agg_fn)() for col, agg_fn in rollup_aggs_final.items()]
         result = working.group_by(rollup_keys_final).agg(agg_exprs)
     else:
         # No keys: aggregate entire DataFrame to single row
-        agg_exprs = [
-            getattr(pl.col(col), agg_fn)()
-            for col, agg_fn in rollup_aggs_final.items()
-        ]
+        agg_exprs = [getattr(pl.col(col), agg_fn)() for col, agg_fn in rollup_aggs_final.items()]
         result = working.select(agg_exprs)
 
     return result
@@ -113,12 +107,16 @@ def aggregate_table(
     """
     # If no inputs, return empty DataFrames with schema
     if not table_inputs:
-        empty_stacked = pl.DataFrame({
-            "dpid": pl.Series([], dtype=pl.Utf8),
-        })
-        empty_masked = pl.DataFrame({
-            "surrogate_id": pl.Series([], dtype=pl.Int64),
-        })
+        empty_stacked = pl.DataFrame(
+            {
+                "dpid": pl.Series([], dtype=pl.Utf8),
+            }
+        )
+        empty_masked = pl.DataFrame(
+            {
+                "surrogate_id": pl.Series([], dtype=pl.Int64),
+            }
+        )
         result = {"stacked": empty_stacked, "masked": empty_masked}
         if not should_exclude_rollup(table_name, agg_config.exclude_from_rollup):
             empty_rollup = pl.DataFrame()

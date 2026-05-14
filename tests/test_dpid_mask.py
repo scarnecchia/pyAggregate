@@ -11,10 +11,12 @@ from pyaggregate.core.dpid_mask import mask_dpid
 @pytest.fixture
 def dpid_map_fixture() -> pl.DataFrame:
     """Create a sample dpid_map for testing."""
-    return pl.DataFrame({
-        "dpid": ["aeos", "cms", "kpsc"],
-        "surrogate_id": [1, 2, 3],
-    })
+    return pl.DataFrame(
+        {
+            "dpid": ["aeos", "cms", "kpsc"],
+            "surrogate_id": [1, 2, 3],
+        }
+    )
 
 
 class TestMaskDpidBasic:
@@ -22,10 +24,12 @@ class TestMaskDpidBasic:
 
     def test_mask_dpid_with_known_mappings(self, dpid_map_fixture: pl.DataFrame) -> None:
         """Test masking with known dpid -> surrogate_id mappings."""
-        frame = pl.DataFrame({
-            "dpid": ["aeos", "cms", "aeos"],
-            "patient_id": [1, 2, 3],
-        })
+        frame = pl.DataFrame(
+            {
+                "dpid": ["aeos", "cms", "aeos"],
+                "patient_id": [1, 2, 3],
+            }
+        )
 
         result = mask_dpid(frame, dpid_map_fixture)
 
@@ -38,10 +42,12 @@ class TestMaskDpidBasic:
 
     def test_mask_dpid_empty_frame(self, dpid_map_fixture: pl.DataFrame) -> None:
         """Test masking an empty DataFrame returns correct schema."""
-        frame = pl.DataFrame({
-            "dpid": pl.Series([], dtype=pl.Utf8),
-            "patient_id": pl.Series([], dtype=pl.Int64),
-        })
+        frame = pl.DataFrame(
+            {
+                "dpid": pl.Series([], dtype=pl.Utf8),
+                "patient_id": pl.Series([], dtype=pl.Int64),
+            }
+        )
 
         result = mask_dpid(frame, dpid_map_fixture)
 
@@ -51,25 +57,27 @@ class TestMaskDpidBasic:
 
     def test_mask_dpid_single_row(self, dpid_map_fixture: pl.DataFrame) -> None:
         """Test masking a single row."""
-        frame = pl.DataFrame({
-            "dpid": ["kpsc"],
-            "patient_id": [42],
-        })
+        frame = pl.DataFrame(
+            {
+                "dpid": ["kpsc"],
+                "patient_id": [42],
+            }
+        )
 
         result = mask_dpid(frame, dpid_map_fixture)
 
         assert result.height == 1
         assert result["surrogate_id"][0] == 3
 
-    def test_mask_dpid_preserves_other_columns(
-        self, dpid_map_fixture: pl.DataFrame
-    ) -> None:
+    def test_mask_dpid_preserves_other_columns(self, dpid_map_fixture: pl.DataFrame) -> None:
         """Test that masking preserves columns other than dpid."""
-        frame = pl.DataFrame({
-            "dpid": ["aeos", "cms"],
-            "patient_id": [1, 2],
-            "name": ["alice", "bob"],
-        })
+        frame = pl.DataFrame(
+            {
+                "dpid": ["aeos", "cms"],
+                "patient_id": [1, 2],
+                "name": ["alice", "bob"],
+            }
+        )
 
         result = mask_dpid(frame, dpid_map_fixture)
 
@@ -96,10 +104,12 @@ class TestMaskDpidProperties:
         self, data: list[tuple[str, int]], dpid_map_fixture: pl.DataFrame
     ) -> None:
         """Property: Row count is preserved after masking."""
-        frame = pl.DataFrame({
-            "dpid": [dpid for dpid, _ in data],
-            "value": [val for _, val in data],
-        })
+        frame = pl.DataFrame(
+            {
+                "dpid": [dpid for dpid, _ in data],
+                "value": [val for _, val in data],
+            }
+        )
 
         result = mask_dpid(frame, dpid_map_fixture)
 
@@ -120,10 +130,12 @@ class TestMaskDpidProperties:
         self, data: list[tuple[str, int]], dpid_map_fixture: pl.DataFrame
     ) -> None:
         """Property: Result has no dpid column."""
-        frame = pl.DataFrame({
-            "dpid": [dpid for dpid, _ in data],
-            "value": [val for _, val in data],
-        })
+        frame = pl.DataFrame(
+            {
+                "dpid": [dpid for dpid, _ in data],
+                "value": [val for _, val in data],
+            }
+        )
 
         result = mask_dpid(frame, dpid_map_fixture)
 
@@ -144,10 +156,12 @@ class TestMaskDpidProperties:
         self, data: list[tuple[str, int]], dpid_map_fixture: pl.DataFrame
     ) -> None:
         """Property: Result has surrogate_id column."""
-        frame = pl.DataFrame({
-            "dpid": [dpid for dpid, _ in data],
-            "value": [val for _, val in data],
-        })
+        frame = pl.DataFrame(
+            {
+                "dpid": [dpid for dpid, _ in data],
+                "value": [val for _, val in data],
+            }
+        )
 
         result = mask_dpid(frame, dpid_map_fixture)
 
@@ -168,10 +182,12 @@ class TestMaskDpidProperties:
         self, data: list[tuple[str, int]], dpid_map_fixture: pl.DataFrame
     ) -> None:
         """Property: Each unique dpid maps to exactly one unique surrogate_id (injective mapping)."""
-        frame = pl.DataFrame({
-            "dpid": [dpid for dpid, _ in data],
-            "value": [val for _, val in data],
-        })
+        frame = pl.DataFrame(
+            {
+                "dpid": [dpid for dpid, _ in data],
+                "value": [val for _, val in data],
+            }
+        )
 
         result = mask_dpid(frame, dpid_map_fixture)
 
@@ -201,10 +217,12 @@ class TestMaskDpidProperties:
 
     def test_unmapped_dpid_produces_null(self, dpid_map_fixture: pl.DataFrame) -> None:
         """Test that unmapped dpid produces null surrogate_id."""
-        frame = pl.DataFrame({
-            "dpid": ["unknown_dp"],
-            "value": [1],
-        })
+        frame = pl.DataFrame(
+            {
+                "dpid": ["unknown_dp"],
+                "value": [1],
+            }
+        )
 
         result = mask_dpid(frame, dpid_map_fixture)
 

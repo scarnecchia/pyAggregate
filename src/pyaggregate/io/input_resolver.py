@@ -50,11 +50,7 @@ def resolve_inputs(
         msoc_path = Path(msoc_path_str)
 
         # Choose glob strategy based on agg_config
-        tables = (
-            glob_scdm_tables(msoc_path)
-            if agg_config.subdirectory
-            else glob_tables(msoc_path)
-        )
+        tables = glob_scdm_tables(msoc_path) if agg_config.subdirectory else glob_tables(msoc_path)
 
         # Add (table_name, dpid, wpid, msoc_path, reqtype) tuples
         for table_name in tables:

@@ -66,15 +66,17 @@ def write_run(
             tables_succeeded.append(table_name)
         except Exception as e:
             logger.error(f"Failed to write table {table_name}: {e}", exc_info=True)
-            tables_skipped.append({
-                "table": table_name,
-                "error_class": "write_error",
-                "detail": str(e),
-            })
+            tables_skipped.append(
+                {
+                    "table": table_name,
+                    "error_class": "write_error",
+                    "detail": str(e),
+                }
+            )
 
     # Filter dpid_map to only surrogates actually used in masked outputs
     masked_surrogates: set[str] = set()
-    for table_name, outputs_dict in table_outputs.items():
+    for _, outputs_dict in table_outputs.items():
         if "masked" in outputs_dict:
             masked_df = outputs_dict["masked"]
             if "surrogate_id" in masked_df.columns:
@@ -83,9 +85,7 @@ def write_run(
 
     # Filter dpid_map to only include used surrogates
     if masked_surrogates:
-        filtered_map = dpid_map_frame.filter(
-            pl.col("surrogate_id").is_in(list(masked_surrogates))
-        )
+        filtered_map = dpid_map_frame.filter(pl.col("surrogate_id").is_in(list(masked_surrogates)))
     else:
         filtered_map = pl.DataFrame(columns=dpid_map_frame.columns)
 

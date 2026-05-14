@@ -18,11 +18,13 @@ class TestComputeRollupBasic:
 
     def test_compute_rollup_removes_dpid(self) -> None:
         """Rollup output does not contain dpid column."""
-        stacked = pl.DataFrame({
-            "dpid": ["aeos", "aeos", "cms"],
-            "region": ["CA", "CA", "CA"],
-            "count": [10, 20, 30],
-        })
+        stacked = pl.DataFrame(
+            {
+                "dpid": ["aeos", "aeos", "cms"],
+                "region": ["CA", "CA", "CA"],
+                "count": [10, 20, 30],
+            }
+        )
 
         rollup = compute_rollup(stacked, None, None)
 
@@ -30,12 +32,14 @@ class TestComputeRollupBasic:
 
     def test_compute_rollup_removes_surrogate_id(self) -> None:
         """Rollup output does not contain surrogate_id column."""
-        stacked = pl.DataFrame({
-            "dpid": ["aeos", "aeos"],
-            "surrogate_id": [1, 1],
-            "region": ["CA", "CA"],
-            "count": [10, 20],
-        })
+        stacked = pl.DataFrame(
+            {
+                "dpid": ["aeos", "aeos"],
+                "surrogate_id": [1, 1],
+                "region": ["CA", "CA"],
+                "count": [10, 20],
+            }
+        )
 
         rollup = compute_rollup(stacked, None, None)
 
@@ -43,12 +47,14 @@ class TestComputeRollupBasic:
 
     def test_compute_rollup_preserves_sum(self) -> None:
         """Sum of numeric columns in rollup equals sum in stacked."""
-        stacked = pl.DataFrame({
-            "dpid": ["aeos", "aeos", "cms"],
-            "region": ["CA", "CA", "CA"],
-            "count": [10, 20, 30],
-            "value": [100.0, 200.0, 300.0],
-        })
+        stacked = pl.DataFrame(
+            {
+                "dpid": ["aeos", "aeos", "cms"],
+                "region": ["CA", "CA", "CA"],
+                "count": [10, 20, 30],
+                "value": [100.0, 200.0, 300.0],
+            }
+        )
 
         rollup = compute_rollup(stacked, None, None)
 
@@ -57,11 +63,13 @@ class TestComputeRollupBasic:
 
     def test_compute_rollup_collapses_identical_keys(self) -> None:
         """Identical key combinations collapse to single row."""
-        stacked = pl.DataFrame({
-            "dpid": ["aeos", "cms", "kpsc"],
-            "region": ["CA", "CA", "CA"],
-            "count": [10, 20, 30],
-        })
+        stacked = pl.DataFrame(
+            {
+                "dpid": ["aeos", "cms", "kpsc"],
+                "region": ["CA", "CA", "CA"],
+                "count": [10, 20, 30],
+            }
+        )
 
         rollup = compute_rollup(stacked, None, None)
 
@@ -71,11 +79,13 @@ class TestComputeRollupBasic:
 
     def test_compute_rollup_distinct_keys_preserved(self) -> None:
         """Distinct key combinations create separate rows."""
-        stacked = pl.DataFrame({
-            "dpid": ["aeos", "cms", "kpsc"],
-            "region": ["CA", "TX", "NY"],
-            "count": [10, 20, 30],
-        })
+        stacked = pl.DataFrame(
+            {
+                "dpid": ["aeos", "cms", "kpsc"],
+                "region": ["CA", "TX", "NY"],
+                "count": [10, 20, 30],
+            }
+        )
 
         rollup = compute_rollup(stacked, None, None)
 
@@ -84,12 +94,14 @@ class TestComputeRollupBasic:
 
     def test_compute_rollup_custom_keys(self) -> None:
         """Custom rollup_keys uses only specified columns."""
-        stacked = pl.DataFrame({
-            "dpid": ["aeos", "aeos", "cms"],
-            "region": ["CA", "CA", "TX"],
-            "state": ["CA", "CA", "TX"],
-            "count": [10, 20, 30],
-        })
+        stacked = pl.DataFrame(
+            {
+                "dpid": ["aeos", "aeos", "cms"],
+                "region": ["CA", "CA", "TX"],
+                "state": ["CA", "CA", "TX"],
+                "count": [10, 20, 30],
+            }
+        )
 
         rollup = compute_rollup(stacked, ["region"], None)
 
@@ -98,12 +110,14 @@ class TestComputeRollupBasic:
 
     def test_compute_rollup_custom_aggs(self) -> None:
         """Custom rollup_aggs applies specified aggregation functions."""
-        stacked = pl.DataFrame({
-            "dpid": ["aeos", "aeos", "cms"],
-            "region": ["CA", "CA", "CA"],
-            "count": [10, 20, 30],
-            "value": [100.0, 200.0, 300.0],
-        })
+        stacked = pl.DataFrame(
+            {
+                "dpid": ["aeos", "aeos", "cms"],
+                "region": ["CA", "CA", "CA"],
+                "count": [10, 20, 30],
+                "value": [100.0, 200.0, 300.0],
+            }
+        )
 
         rollup = compute_rollup(
             stacked,
@@ -116,10 +130,12 @@ class TestComputeRollupBasic:
 
     def test_compute_rollup_default_aggs_sum(self) -> None:
         """Default aggregation is sum for numeric columns."""
-        stacked = pl.DataFrame({
-            "dpid": ["aeos", "cms"],
-            "count": [10, 20],
-        })
+        stacked = pl.DataFrame(
+            {
+                "dpid": ["aeos", "cms"],
+                "count": [10, 20],
+            }
+        )
 
         rollup = compute_rollup(stacked, None, None)
 
@@ -127,12 +143,14 @@ class TestComputeRollupBasic:
 
     def test_compute_rollup_default_keys_all_non_numeric(self) -> None:
         """Default keys are all non-numeric columns after drops."""
-        stacked = pl.DataFrame({
-            "dpid": ["aeos", "aeos"],
-            "surrogate_id": [1, 2],
-            "region": ["CA", "TX"],
-            "count": [10, 20],
-        })
+        stacked = pl.DataFrame(
+            {
+                "dpid": ["aeos", "aeos"],
+                "surrogate_id": [1, 2],
+                "region": ["CA", "TX"],
+                "count": [10, 20],
+            }
+        )
 
         rollup = compute_rollup(stacked, None, None)
 
@@ -162,11 +180,13 @@ class TestComputeRollupPropertyBased:
     @example([("aeos", "CA", 10), ("aeos", "TX", 20), ("cms", "NY", 30)])
     def test_rollup_row_count_invariant(self, rows) -> None:
         """Row count of rollup is less than or equal to stacked."""
-        stacked = pl.DataFrame({
-            "dpid": [r[0] for r in rows],
-            "region": [r[1] for r in rows],
-            "value": [r[2] for r in rows],
-        })
+        stacked = pl.DataFrame(
+            {
+                "dpid": [r[0] for r in rows],
+                "region": [r[1] for r in rows],
+                "value": [r[2] for r in rows],
+            }
+        )
 
         rollup = compute_rollup(stacked, None, None)
 
@@ -187,10 +207,12 @@ class TestComputeRollupPropertyBased:
     @example([("aeos", 100), ("cms", 200), ("kpsc", 300)])
     def test_rollup_sum_preservation(self, rows) -> None:
         """Sum of numeric columns preserved from stacked to rollup."""
-        stacked = pl.DataFrame({
-            "dpid": [r[0] for r in rows],
-            "value": [r[1] for r in rows],
-        })
+        stacked = pl.DataFrame(
+            {
+                "dpid": [r[0] for r in rows],
+                "value": [r[1] for r in rows],
+            }
+        )
         stacked_sum = stacked["value"].sum()
 
         rollup = compute_rollup(stacked, None, None)
@@ -212,10 +234,12 @@ class TestComputeRollupPropertyBased:
     @example([("aeos", 10), ("cms", 20)])
     def test_rollup_no_dpid_leakage(self, rows) -> None:
         """dpid and surrogate_id never appear in rollup output."""
-        stacked = pl.DataFrame({
-            "dpid": [r[0] for r in rows],
-            "value": [r[1] for r in rows],
-        })
+        stacked = pl.DataFrame(
+            {
+                "dpid": [r[0] for r in rows],
+                "value": [r[1] for r in rows],
+            }
+        )
 
         rollup = compute_rollup(stacked, None, None)
 
@@ -238,11 +262,13 @@ class TestComputeRollupPropertyBased:
     @example([("aeos", "CA", 10), ("aeos", "TX", 20), ("aeos", "NY", 30)])
     def test_rollup_schema_stability(self, rows) -> None:
         """Rollup columns are stacked columns minus dpid and surrogate_id."""
-        stacked = pl.DataFrame({
-            "dpid": [r[0] for r in rows],
-            "region": [r[1] for r in rows],
-            "value": [r[2] for r in rows],
-        })
+        stacked = pl.DataFrame(
+            {
+                "dpid": [r[0] for r in rows],
+                "region": [r[1] for r in rows],
+                "value": [r[2] for r in rows],
+            }
+        )
 
         rollup = compute_rollup(stacked, None, None)
 
@@ -258,32 +284,40 @@ class TestAggregateTableWithRollup:
     def fake_reader(self, msoc_path: Path, table_name: str, dpid: str) -> pl.LazyFrame:
         """Create synthetic LazyFrame for testing."""
         if dpid == "aeos":
-            data = pl.DataFrame({
-                "patient_id": [1, 2],
-                "value": [100, 200],
-                "dpid": ["aeos"] * 2,
-            })
+            data = pl.DataFrame(
+                {
+                    "patient_id": [1, 2],
+                    "value": [100, 200],
+                    "dpid": ["aeos"] * 2,
+                }
+            )
         elif dpid == "cms":
-            data = pl.DataFrame({
-                "patient_id": [3, 4],
-                "value": [300, 400],
-                "dpid": ["cms"] * 2,
-            })
+            data = pl.DataFrame(
+                {
+                    "patient_id": [3, 4],
+                    "value": [300, 400],
+                    "dpid": ["cms"] * 2,
+                }
+            )
         else:
-            data = pl.DataFrame({
-                "patient_id": [],
-                "value": [],
-                "dpid": [],
-            })
+            data = pl.DataFrame(
+                {
+                    "patient_id": [],
+                    "value": [],
+                    "dpid": [],
+                }
+            )
         return data.lazy()
 
     @pytest.fixture
     def dpid_map(self) -> pl.DataFrame:
         """Create a sample dpid_map for testing."""
-        return pl.DataFrame({
-            "dpid": ["aeos", "cms"],
-            "surrogate_id": [1, 2],
-        })
+        return pl.DataFrame(
+            {
+                "dpid": ["aeos", "cms"],
+                "surrogate_id": [1, 2],
+            }
+        )
 
     def test_aggregate_table_includes_rollup_in_output(self, dpid_map: pl.DataFrame) -> None:
         """aggregate_table output dict includes 'rollup' key."""
@@ -303,9 +337,7 @@ class TestAggregateTableWithRollup:
         assert "stacked" in result
         assert "masked" in result
 
-    def test_aggregate_table_rollup_has_correct_properties(
-        self, dpid_map: pl.DataFrame
-    ) -> None:
+    def test_aggregate_table_rollup_has_correct_properties(self, dpid_map: pl.DataFrame) -> None:
         """Rollup output has no dpid/surrogate_id and sums match."""
         table_inputs = [
             TableInput("aeos", "wp041", Path("/data/aeos/msoc"), "qar"),
@@ -327,9 +359,7 @@ class TestAggregateTableWithRollup:
         assert "surrogate_id" not in rollup.columns
         assert rollup["value"].sum() == pytest.approx(stacked["value"].sum())
 
-    def test_aggregate_table_rollup_row_count_lte_stacked(
-        self, dpid_map: pl.DataFrame
-    ) -> None:
+    def test_aggregate_table_rollup_row_count_lte_stacked(self, dpid_map: pl.DataFrame) -> None:
         """Rollup row count is less than or equal to stacked."""
         table_inputs = [
             TableInput("aeos", "wp041", Path("/data/aeos/msoc"), "qar"),
@@ -346,9 +376,7 @@ class TestAggregateTableWithRollup:
 
         assert result["rollup"].height <= result["stacked"].height
 
-    def test_aggregate_table_applies_config_rollup_keys(
-        self, dpid_map: pl.DataFrame
-    ) -> None:
+    def test_aggregate_table_applies_config_rollup_keys(self, dpid_map: pl.DataFrame) -> None:
         """Config-driven custom rollup_keys are applied to rollup computation."""
         table_inputs = [
             TableInput("aeos", "wp041", Path("/data/aeos/msoc"), "qar"),
@@ -356,9 +384,11 @@ class TestAggregateTableWithRollup:
         ]
 
         # Create config with custom rollup_keys for 'patient' table
-        table_overrides = MappingProxyType({
-            "patient": TableOverride(rollup_keys=("patient_id",), rollup_aggs=None),
-        })
+        table_overrides = MappingProxyType(
+            {
+                "patient": TableOverride(rollup_keys=("patient_id",), rollup_aggs=None),
+            }
+        )
         agg_config = AggTypeConfig(
             name="qa",
             source_reqtype="qar",
@@ -379,18 +409,18 @@ class TestAggregateTableWithRollup:
         assert "patient_id" in rollup.columns
         assert "value" in rollup.columns
 
-    def test_aggregate_table_applies_config_rollup_aggs(
-        self, dpid_map: pl.DataFrame
-    ) -> None:
+    def test_aggregate_table_applies_config_rollup_aggs(self, dpid_map: pl.DataFrame) -> None:
         """Config-driven custom rollup_aggs are applied to rollup computation."""
         table_inputs = [
             TableInput("aeos", "wp041", Path("/data/aeos/msoc"), "qar"),
         ]
 
         # Create config with custom aggregation (mean instead of sum)
-        table_overrides = MappingProxyType({
-            "patient": TableOverride(rollup_keys=None, rollup_aggs={"value": "mean"}),
-        })
+        table_overrides = MappingProxyType(
+            {
+                "patient": TableOverride(rollup_keys=None, rollup_aggs={"value": "mean"}),
+            }
+        )
         agg_config = AggTypeConfig(
             name="qa",
             source_reqtype="qar",

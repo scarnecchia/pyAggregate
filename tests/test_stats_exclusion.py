@@ -44,24 +44,30 @@ class TestAggregateTableExcludeRollup:
     def fake_reader(self, msoc_path: Path, table_name: str, dpid: str) -> pl.LazyFrame:
         """Create synthetic LazyFrame for testing."""
         if dpid == "aeos":
-            data = pl.DataFrame({
-                "value": [100, 200],
-                "dpid": ["aeos"] * 2,
-            })
+            data = pl.DataFrame(
+                {
+                    "value": [100, 200],
+                    "dpid": ["aeos"] * 2,
+                }
+            )
         else:
-            data = pl.DataFrame({
-                "value": [],
-                "dpid": [],
-            })
+            data = pl.DataFrame(
+                {
+                    "value": [],
+                    "dpid": [],
+                }
+            )
         return data.lazy()
 
     @pytest.fixture
     def dpid_map(self) -> pl.DataFrame:
         """Create a sample dpid_map for testing."""
-        return pl.DataFrame({
-            "dpid": ["aeos"],
-            "surrogate_id": [1],
-        })
+        return pl.DataFrame(
+            {
+                "dpid": ["aeos"],
+                "surrogate_id": [1],
+            }
+        )
 
     def test_aggregate_table_excluded_table_no_rollup(self, dpid_map: pl.DataFrame) -> None:
         """Table matching exclusion pattern does not have rollup output."""
@@ -86,9 +92,7 @@ class TestAggregateTableExcludeRollup:
         assert "masked" in result
         assert "rollup" not in result
 
-    def test_aggregate_table_non_excluded_table_has_rollup(
-        self, dpid_map: pl.DataFrame
-    ) -> None:
+    def test_aggregate_table_non_excluded_table_has_rollup(self, dpid_map: pl.DataFrame) -> None:
         """Table not matching exclusion pattern has rollup output."""
         agg_config = AggTypeConfig(
             name="qa",
@@ -111,9 +115,7 @@ class TestAggregateTableExcludeRollup:
         assert "masked" in result
         assert "rollup" in result
 
-    def test_aggregate_table_no_exclusions_all_have_rollup(
-        self, dpid_map: pl.DataFrame
-    ) -> None:
+    def test_aggregate_table_no_exclusions_all_have_rollup(self, dpid_map: pl.DataFrame) -> None:
         """With empty exclusion list, all tables get rollup."""
         agg_config = AggTypeConfig(
             name="qa",
@@ -134,9 +136,7 @@ class TestAggregateTableExcludeRollup:
 
         assert "rollup" in result
 
-    def test_aggregate_table_multiple_exclusion_patterns(
-        self, dpid_map: pl.DataFrame
-    ) -> None:
+    def test_aggregate_table_multiple_exclusion_patterns(self, dpid_map: pl.DataFrame) -> None:
         """Multiple patterns all work for exclusion."""
         agg_config = AggTypeConfig(
             name="qa",

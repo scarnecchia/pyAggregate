@@ -103,9 +103,7 @@ class TestFilterCatalog:
         assert has_scdm == [1]
         assert len(result) == 3  # aeos qar, aeos qmr, cms qar
 
-    def test_filter_catalog_preserves_all_columns(
-        self, catalog_fixture: CatalogFixture
-    ) -> None:
+    def test_filter_catalog_preserves_all_columns(self, catalog_fixture: CatalogFixture) -> None:
         """Filter preserves all columns from input catalog."""
         catalog = catalog_fixture.catalog()
         agg_config = AggTypeConfig(
@@ -323,9 +321,7 @@ class TestResolveInputs:
             result = resolve_inputs(catalog, agg_config)
 
         # Only qar should be in result (qmr filtered out)
-        assert all(
-            input_obj.reqtype == "qar" for inputs in result.values() for input_obj in inputs
-        )
+        assert all(input_obj.reqtype == "qar" for inputs in result.values() for input_obj in inputs)
 
     def test_resolve_inputs_empty_catalog_after_filter(self, tmp_path: Path) -> None:
         """resolve_inputs returns empty dict if catalog has no matching rows."""

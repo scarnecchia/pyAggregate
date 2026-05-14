@@ -14,27 +14,37 @@ def table_outputs() -> dict[str, dict[str, pl.DataFrame]]:
     """Create synthetic table_outputs for testing."""
     return {
         "ae": {
-            "stacked": pl.DataFrame({
-                "dpid": ["aeos", "cms"],
-                "col1": [1, 2],
-            }),
-            "masked": pl.DataFrame({
-                "surrogate_id": ["dp_001", "dp_002"],
-                "col1": [1, 2],
-            }),
-            "rollup": pl.DataFrame({
-                "col1": [3],
-            }),
+            "stacked": pl.DataFrame(
+                {
+                    "dpid": ["aeos", "cms"],
+                    "col1": [1, 2],
+                }
+            ),
+            "masked": pl.DataFrame(
+                {
+                    "surrogate_id": ["dp_001", "dp_002"],
+                    "col1": [1, 2],
+                }
+            ),
+            "rollup": pl.DataFrame(
+                {
+                    "col1": [3],
+                }
+            ),
         },
         "ae_stats": {
-            "stacked": pl.DataFrame({
-                "dpid": ["aeos"],
-                "col1": [1],
-            }),
-            "masked": pl.DataFrame({
-                "surrogate_id": ["dp_001"],
-                "col1": [1],
-            }),
+            "stacked": pl.DataFrame(
+                {
+                    "dpid": ["aeos"],
+                    "col1": [1],
+                }
+            ),
+            "masked": pl.DataFrame(
+                {
+                    "surrogate_id": ["dp_001"],
+                    "col1": [1],
+                }
+            ),
             # No "rollup" key — excluded by _stats pattern
         },
     }
@@ -43,11 +53,13 @@ def table_outputs() -> dict[str, dict[str, pl.DataFrame]]:
 @pytest.fixture
 def dpid_map() -> pl.DataFrame:
     """Create synthetic dpid_map for testing."""
-    return pl.DataFrame({
-        "dpid": ["aeos", "cms", "kpsc"],
-        "surrogate_id": ["dp_001", "dp_002", "dp_003"],
-        "first_seen_at": ["2026-01-01T00:00:00+00:00"] * 3,
-    })
+    return pl.DataFrame(
+        {
+            "dpid": ["aeos", "cms", "kpsc"],
+            "surrogate_id": ["dp_001", "dp_002", "dp_003"],
+            "first_seen_at": ["2026-01-01T00:00:00+00:00"] * 3,
+        }
+    )
 
 
 def test_write_run_creates_directory_structure(tmp_path, table_outputs, dpid_map):

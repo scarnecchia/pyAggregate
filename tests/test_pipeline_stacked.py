@@ -14,29 +14,37 @@ def fake_reader(msoc_path: Path, table_name: str, dpid: str) -> pl.LazyFrame:
     """Create synthetic LazyFrame for testing."""
     # Simple test data: return a small frame with the given dpid
     if dpid == "aeos":
-        data = pl.DataFrame({
-            "patient_id": [1, 2, 3, 4, 5],
-            "value": [100, 101, 102, 103, 104],
-            "dpid": ["aeos"] * 5,
-        })
+        data = pl.DataFrame(
+            {
+                "patient_id": [1, 2, 3, 4, 5],
+                "value": [100, 101, 102, 103, 104],
+                "dpid": ["aeos"] * 5,
+            }
+        )
     elif dpid == "cms":
-        data = pl.DataFrame({
-            "patient_id": [6, 7, 8, 9, 10],
-            "value": [200, 201, 202, 203, 204],
-            "dpid": ["cms"] * 5,
-        })
+        data = pl.DataFrame(
+            {
+                "patient_id": [6, 7, 8, 9, 10],
+                "value": [200, 201, 202, 203, 204],
+                "dpid": ["cms"] * 5,
+            }
+        )
     elif dpid == "kpsc":
-        data = pl.DataFrame({
-            "patient_id": [11, 12, 13, 14, 15],
-            "value": [300, 301, 302, 303, 304],
-            "dpid": ["kpsc"] * 5,
-        })
+        data = pl.DataFrame(
+            {
+                "patient_id": [11, 12, 13, 14, 15],
+                "value": [300, 301, 302, 303, 304],
+                "dpid": ["kpsc"] * 5,
+            }
+        )
     else:
-        data = pl.DataFrame({
-            "patient_id": [],
-            "value": [],
-            "dpid": [],
-        })
+        data = pl.DataFrame(
+            {
+                "patient_id": [],
+                "value": [],
+                "dpid": [],
+            }
+        )
 
     return data.lazy()
 
@@ -44,10 +52,12 @@ def fake_reader(msoc_path: Path, table_name: str, dpid: str) -> pl.LazyFrame:
 @pytest.fixture
 def dpid_map_fixture() -> pl.DataFrame:
     """Create a sample dpid_map for testing."""
-    return pl.DataFrame({
-        "dpid": ["aeos", "cms", "kpsc"],
-        "surrogate_id": [1, 2, 3],
-    })
+    return pl.DataFrame(
+        {
+            "dpid": ["aeos", "cms", "kpsc"],
+            "surrogate_id": [1, 2, 3],
+        }
+    )
 
 
 class TestAggregateTableBasic:
@@ -148,9 +158,7 @@ class TestAggregateTableBasic:
         assert "dpid" in result["stacked"].columns
         assert "surrogate_id" in result["masked"].columns
 
-    def test_aggregate_table_preserves_other_columns(
-        self, dpid_map_fixture: pl.DataFrame
-    ) -> None:
+    def test_aggregate_table_preserves_other_columns(self, dpid_map_fixture: pl.DataFrame) -> None:
         """Aggregation preserves columns other than dpid/surrogate_id."""
         table_inputs = [
             TableInput("aeos", "wp041", Path("/data/aeos/msoc"), "qar"),
@@ -193,27 +201,29 @@ class TestAggregateTableBasic:
 class TestAggregateTableSchemaDrift:
     """Tests for schema drift handling."""
 
-    def test_aggregate_table_with_schema_drift(
-        self, dpid_map_fixture: pl.DataFrame
-    ) -> None:
+    def test_aggregate_table_with_schema_drift(self, dpid_map_fixture: pl.DataFrame) -> None:
         """Handles schema drift gracefully using diagonal concat."""
 
         def fake_reader_drift(msoc_path: Path, table_name: str, dpid: str) -> pl.LazyFrame:
             if dpid == "aeos":
                 # Has extra_col
-                data = pl.DataFrame({
-                    "patient_id": [1, 2],
-                    "value": [100, 101],
-                    "dpid": ["aeos"] * 2,
-                    "extra_col": ["x", "y"],
-                })
+                data = pl.DataFrame(
+                    {
+                        "patient_id": [1, 2],
+                        "value": [100, 101],
+                        "dpid": ["aeos"] * 2,
+                        "extra_col": ["x", "y"],
+                    }
+                )
             else:
                 # No extra_col
-                data = pl.DataFrame({
-                    "patient_id": [3, 4],
-                    "value": [200, 201],
-                    "dpid": ["cms"] * 2,
-                })
+                data = pl.DataFrame(
+                    {
+                        "patient_id": [3, 4],
+                        "value": [200, 201],
+                        "dpid": ["cms"] * 2,
+                    }
+                )
 
             return data.lazy()
 
