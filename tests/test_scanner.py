@@ -174,8 +174,10 @@ class TestScannerBasics:
             assert aeos_row is not None
             assert aeos_row["has_scdm"] == 0
 
-    def test_scan_unparseable_directory_logged_and_skipped(self, tmp_path: Path) -> None:
+    def test_scan_unparseable_directory_logged_and_skipped(self, tmp_path: Path, caplog) -> None:  # type: ignore[no-untyped-def]
         """AC2.5: Unparseable directory name logged at WARN, scan continues."""
+        import logging
+
         specs = [
             TreeSpec("aeos", "qar", "wp041", "v01", has_msoc=True),
         ]
@@ -189,14 +191,20 @@ class TestScannerBasics:
 
         config = create_config(requests_root, catalog_db, tmp_path)
 
-        with CatalogStore(catalog_db) as store:
-            store.init_schema()
-            result = run_scan(config, store)
+        with caplog.at_level(logging.WARNING):
+            with CatalogStore(catalog_db) as store:
+                store.init_schema()
+                result = run_scan(config, store)
 
-        # Should have 1 upserted and logged the bad directory (not counted as
-        # skipped, since we don't track that separately in this implementation)
+        # Should have 1 upserted and logged the bad directory
         assert result.rows_upserted == 1
         assert result.errors == 0
+
+        # Verify WARN log was emitted with the unparseable directory name
+        assert any(
+            "soc_qar_wp041_aeos" in record.message and record.levelno == logging.WARNING
+            for record in caplog.records
+        )
 
         with CatalogStore(catalog_db) as store:
             df = store.snapshot_catalog()

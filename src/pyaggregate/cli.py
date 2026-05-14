@@ -49,11 +49,15 @@ def scan(
                     typer.echo("Dry run: no changes")
             else:
                 result = run_scan(cfg, store)
-                typer.echo(
-                    f"Scan complete: {result.rows_upserted} rows upserted, "
-                    f"{result.packages_skipped} packages skipped, "
-                    f"{result.errors} errors"
-                )
+                if result.rows_upserted == 0 and result.errors == 0:
+                    # Check if this was a lock contention (info-level log already emitted)
+                    typer.echo("Scan complete: no changes")
+                else:
+                    typer.echo(
+                        f"Scan complete: {result.rows_upserted} rows upserted, "
+                        f"{result.packages_skipped} packages skipped, "
+                        f"{result.errors} errors"
+                    )
     except Exception as e:
         typer.echo(f"failed to scan: {e}", err=True)
         raise typer.Exit(code=1) from e
