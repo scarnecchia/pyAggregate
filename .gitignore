@@ -21,7 +21,7 @@ build/
 Thumbs.db
 
 # Local config (user-specific, not committed)
-pyaggregate.toml
+/pyaggregate.toml
 
 # Aggregation outputs (produced by pyaggregate run)
 outputs/

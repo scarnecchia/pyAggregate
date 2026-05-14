@@ -1,0 +1,25 @@
+# pyaggregate configuration
+# Copy to ./pyaggregate.toml and adjust paths for your environment.
+
+[scan]
+requests_root = "/data/requests"
+
+[state]
+catalog_db = "/data/state/catalog.db"
+log_dir = "/data/state/logs"
+
+[output]
+output_root = "/data/outputs"
+
+[agg.qa]
+source_reqtype = "qar"
+exclude_from_rollup = ["*_stats"]
+
+[agg.qm]
+source_reqtype = "qmr"
+exclude_from_rollup = ["*_stats"]
+
+[agg.sdd]
+source_field = "has_scdm"
+subdirectory = "scdm_snapshot"
+exclude_from_rollup = []
