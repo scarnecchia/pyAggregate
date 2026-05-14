@@ -1,5 +1,5 @@
 # pattern: Imperative Shell
-"""Pipeline orchestration for stacked and masked aggregation outputs."""
+"""Pipeline orchestration for stacked, masked, and rollup aggregation outputs."""
 
 import logging
 from collections.abc import Callable
@@ -11,6 +11,62 @@ from pyaggregate.core.dpid_mask import mask_dpid
 from pyaggregate.core.input_resolution import TableInput
 
 logger = logging.getLogger(__name__)
+
+
+def compute_rollup(
+    stacked: pl.DataFrame,
+    rollup_keys: list[str] | None,
+    rollup_aggs: dict[str, str] | None,
+) -> pl.DataFrame:
+    """Compute rollup aggregation from stacked DataFrame.
+
+    Rollup collapses rows by grouping on key columns and aggregating numeric columns.
+    Removes dpid and surrogate_id before grouping.
+
+    Args:
+        stacked: DataFrame with all stacked rows from multiple DPs
+        rollup_keys: Columns to group by. If None, all non-numeric columns are used
+        rollup_aggs: Dict mapping column names to aggregation functions.
+                     If None, "sum" is used for all numeric columns
+
+    Returns:
+        Aggregated DataFrame with dpid and surrogate_id removed
+    """
+    # Drop sensitive identifier columns
+    working = stacked.drop(["dpid", "surrogate_id"], strict=False)
+
+    # Determine grouping keys: all non-numeric columns if not specified
+    if rollup_keys is None:
+        numeric_cols = {col for col, dtype in zip(working.columns, working.schema.values())
+                       if dtype.is_numeric()}
+        rollup_keys_final = [col for col in working.columns if col not in numeric_cols]
+    else:
+        rollup_keys_final = list(rollup_keys)
+
+    # Determine aggregations: sum for all numeric columns if not specified
+    if rollup_aggs is None:
+        numeric_cols = {col for col, dtype in zip(working.columns, working.schema.values())
+                       if dtype.is_numeric()}
+        rollup_aggs_final = {col: "sum" for col in numeric_cols}
+    else:
+        rollup_aggs_final = rollup_aggs
+
+    # Apply groupby and aggregation
+    if rollup_keys_final:
+        agg_exprs = [
+            getattr(pl.col(col), agg_fn)()
+            for col, agg_fn in rollup_aggs_final.items()
+        ]
+        result = working.group_by(rollup_keys_final).agg(agg_exprs)
+    else:
+        # No keys: aggregate entire DataFrame to single row
+        agg_exprs = [
+            getattr(pl.col(col), agg_fn)()
+            for col, agg_fn in rollup_aggs_final.items()
+        ]
+        result = working.select(agg_exprs)
+
+    return result
 
 
 def aggregate_table(
@@ -25,16 +81,17 @@ def aggregate_table(
     Orchestrates:
     1. Stack: Read and concatenate LazyFrames from multiple DPs
     2. Mask: Replace dpid with surrogate_id
+    3. Rollup: Aggregate by key columns (if not excluded)
 
     Args:
         table_inputs: List of TableInput objects specifying where to read from
         dpid_map: DataFrame mapping dpid -> surrogate_id
-        agg_config: Aggregation configuration (unused in core logic)
+        agg_config: Aggregation configuration for table overrides and exclusions
         table_name: Name of the table being aggregated
         reader_fn: Callable(msoc_path, table_name, dpid) -> LazyFrame
 
     Returns:
-        Dictionary with "stacked" and "masked" DataFrames
+        Dictionary with "stacked", "masked", and "rollup" DataFrames (rollup may be absent)
     """
     # If no inputs, return empty DataFrames with schema
     if not table_inputs:
@@ -121,4 +178,7 @@ def aggregate_table(
     # Apply masking
     masked = mask_dpid(stacked, dpid_map)
 
-    return {"stacked": stacked, "masked": masked}
+    # Compute rollup
+    rollup = compute_rollup(stacked, None, None)
+
+    return {"stacked": stacked, "masked": masked, "rollup": rollup}
