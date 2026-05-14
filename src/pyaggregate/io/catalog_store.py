@@ -4,7 +4,8 @@
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
+from types import TracebackType
+from typing import Literal, cast
 
 import polars as pl
 
@@ -27,7 +28,12 @@ class CatalogStore:
         """Context manager entry."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Context manager exit."""
         self.close()
 
@@ -137,7 +143,7 @@ class CatalogStore:
         cursor.execute("SELECT surrogate_id FROM dpid_map WHERE dpid=?", (dpid,))
         row = cursor.fetchone()
         if row is not None:
-            return row[0]
+            return cast("str", row[0])
 
         # Acquire immediate transaction to prevent concurrent surrogate generation
         self._conn.execute("BEGIN IMMEDIATE")
@@ -147,14 +153,14 @@ class CatalogStore:
             row = cursor.fetchone()
             if row is not None:
                 self._conn.commit()
-                return row[0]
+                return cast("str", row[0])
 
             # Calculate next surrogate: max existing + 1
             cursor.execute(
                 "SELECT COALESCE(MAX(CAST(SUBSTR(surrogate_id, 4) AS INTEGER)), 0) + 1 "
                 "FROM dpid_map"
             )
-            next_num = cursor.fetchone()[0]
+            next_num = cast("int", cursor.fetchone()[0])
             surrogate_id = f"dp_{next_num:03d}"
 
             # Insert new mapping
@@ -191,6 +197,19 @@ class CatalogStore:
         """
         cursor = self._conn.cursor()
         cursor.execute("SELECT * FROM dpid_map")
+        columns = [desc[0] for desc in cursor.description]
+        rows = cursor.fetchall()
+
+        return pl.DataFrame(rows, schema=columns, orient="row")
+
+    def snapshot_scan_log(self) -> pl.DataFrame:
+        """Read entire scan_log table into polars DataFrame.
+
+        Returns:
+            Point-in-time snapshot of scan_log as DataFrame
+        """
+        cursor = self._conn.cursor()
+        cursor.execute("SELECT * FROM scan_log ORDER BY started_at DESC")
         columns = [desc[0] for desc in cursor.description]
         rows = cursor.fetchall()
 

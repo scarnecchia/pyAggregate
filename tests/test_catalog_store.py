@@ -11,32 +11,31 @@ class TestCatalogStoreInit:
     def test_init_schema_creates_all_tables(self, tmp_path: Path) -> None:
         """Verify init_schema creates catalog, dpid_map, and scan_log tables."""
         db_path = tmp_path / "test.db"
-        store = CatalogStore(db_path)
-        store.init_schema()
 
-        # Query sqlite_master to verify tables exist
-        cursor = store._conn.cursor()
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
-        tables = {row[0] for row in cursor.fetchall()}
+        with CatalogStore(db_path) as store:
+            store.init_schema()
+
+            # Query sqlite_master to verify tables exist
+            cursor = store._conn.cursor()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+            tables = {row[0] for row in cursor.fetchall()}
 
         assert "catalog" in tables
         assert "dpid_map" in tables
         assert "scan_log" in tables
 
-        store.close()
-
     def test_wal_mode_enabled(self, tmp_path: Path) -> None:
         """Verify WAL mode is set after init_schema."""
         db_path = tmp_path / "test.db"
-        store = CatalogStore(db_path)
-        store.init_schema()
 
-        cursor = store._conn.cursor()
-        cursor.execute("PRAGMA journal_mode")
-        mode = cursor.fetchone()[0]
+        with CatalogStore(db_path) as store:
+            store.init_schema()
 
-        assert mode.lower() == "wal"
-        store.close()
+            cursor = store._conn.cursor()
+            cursor.execute("PRAGMA journal_mode")
+            mode = cursor.fetchone()[0]
+
+            assert mode.lower() == "wal"
 
     def test_context_manager(self, tmp_path: Path) -> None:
         """Verify context manager opens and closes connection."""
@@ -57,123 +56,129 @@ class TestUpsertCatalogRow:
     def test_insert_new_catalog_row(self, tmp_path: Path) -> None:
         """Test inserting a new catalog row."""
         db_path = tmp_path / "test.db"
-        store = CatalogStore(db_path)
-        store.init_schema()
 
-        store.upsert_catalog_row(
-            dpid="aeos",
-            wpid="wp001",
-            reqtype="qar",
-            verid="v1",
-            msoc_path="/path/to/msoc",
-            has_scdm=1,
-        )
+        with CatalogStore(db_path) as store:
+            store.init_schema()
 
-        # Verify row exists
-        cursor = store._conn.cursor()
-        cursor.execute(
-            "SELECT verid, msoc_path, has_scdm FROM catalog WHERE dpid=? AND wpid=? AND reqtype=?",
-            ("aeos", "wp001", "qar"),
-        )
-        row = cursor.fetchone()
+            store.upsert_catalog_row(
+                dpid="aeos",
+                wpid="wp001",
+                reqtype="qar",
+                verid="v1",
+                msoc_path="/path/to/msoc",
+                has_scdm=1,
+            )
 
-        assert row is not None
-        assert row[0] == "v1"
-        assert row[1] == "/path/to/msoc"
-        assert row[2] == 1
+            # Verify row exists
+            cursor = store._conn.cursor()
+            cursor.execute(
+                "SELECT verid, msoc_path, has_scdm FROM catalog WHERE dpid=? AND wpid=? AND reqtype=?",
+                ("aeos", "wp001", "qar"),
+            )
+            row = cursor.fetchone()
 
-        store.close()
+            assert row is not None
+            assert row[0] == "v1"
+            assert row[1] == "/path/to/msoc"
+            assert row[2] == 1
 
     def test_upsert_updates_existing_row(self, tmp_path: Path) -> None:
         """Test that UPSERT updates verid, msoc_path, has_scdm on conflict."""
         db_path = tmp_path / "test.db"
-        store = CatalogStore(db_path)
-        store.init_schema()
 
-        # Insert initial row
-        store.upsert_catalog_row(
-            dpid="aeos",
-            wpid="wp001",
-            reqtype="qar",
-            verid="v1",
-            msoc_path="/old/path",
-            has_scdm=0,
-        )
+        with CatalogStore(db_path) as store:
+            store.init_schema()
 
-        # Insert with same key but different values
-        store.upsert_catalog_row(
-            dpid="aeos",
-            wpid="wp001",
-            reqtype="qar",
-            verid="v2",
-            msoc_path="/new/path",
-            has_scdm=1,
-        )
+            # Insert initial row
+            store.upsert_catalog_row(
+                dpid="aeos",
+                wpid="wp001",
+                reqtype="qar",
+                verid="v1",
+                msoc_path="/old/path",
+                has_scdm=0,
+            )
 
-        # Verify row was updated
-        cursor = store._conn.cursor()
-        cursor.execute(
-            "SELECT verid, msoc_path, has_scdm FROM catalog WHERE dpid=? AND wpid=? AND reqtype=?",
-            ("aeos", "wp001", "qar"),
-        )
-        row = cursor.fetchone()
+            # Insert with same key but different values
+            store.upsert_catalog_row(
+                dpid="aeos",
+                wpid="wp001",
+                reqtype="qar",
+                verid="v2",
+                msoc_path="/new/path",
+                has_scdm=1,
+            )
 
-        assert row is not None
-        assert row[0] == "v2"
-        assert row[1] == "/new/path"
-        assert row[2] == 1
+            # Verify row was updated
+            cursor = store._conn.cursor()
+            cursor.execute(
+                "SELECT verid, msoc_path, has_scdm FROM catalog WHERE dpid=? AND wpid=? AND reqtype=?",
+                ("aeos", "wp001", "qar"),
+            )
+            row = cursor.fetchone()
 
-        store.close()
+            assert row is not None
+            assert row[0] == "v2"
+            assert row[1] == "/new/path"
+            assert row[2] == 1
 
     def test_upsert_idempotence(self, tmp_path: Path) -> None:
         """Test that inserting same values twice only changes observed_at."""
         db_path = tmp_path / "test.db"
-        store = CatalogStore(db_path)
-        store.init_schema()
 
-        # Insert first time
-        store.upsert_catalog_row(
-            dpid="aeos",
-            wpid="wp001",
-            reqtype="qar",
-            verid="v1",
-            msoc_path="/path",
-            has_scdm=1,
-        )
+        with CatalogStore(db_path) as store:
+            store.init_schema()
 
-        cursor = store._conn.cursor()
-        cursor.execute(
-            "SELECT verid, msoc_path, has_scdm, observed_at FROM catalog WHERE dpid=? AND wpid=? AND reqtype=?",
-            ("aeos", "wp001", "qar"),
-        )
-        first_row = cursor.fetchone()
-        first_observed_at = first_row[3]
+            # Insert first time
+            store.upsert_catalog_row(
+                dpid="aeos",
+                wpid="wp001",
+                reqtype="qar",
+                verid="v1",
+                msoc_path="/path",
+                has_scdm=1,
+            )
 
-        # Insert same values again
-        store.upsert_catalog_row(
-            dpid="aeos",
-            wpid="wp001",
-            reqtype="qar",
-            verid="v1",
-            msoc_path="/path",
-            has_scdm=1,
-        )
+            cursor = store._conn.cursor()
+            cursor.execute(
+                "SELECT verid, msoc_path, has_scdm, observed_at FROM catalog WHERE dpid=? AND wpid=? AND reqtype=?",
+                ("aeos", "wp001", "qar"),
+            )
+            first_row = cursor.fetchone()
+            first_observed_at = first_row[3]
 
-        cursor.execute(
-            "SELECT verid, msoc_path, has_scdm, observed_at FROM catalog WHERE dpid=? AND wpid=? AND reqtype=?",
-            ("aeos", "wp001", "qar"),
-        )
-        second_row = cursor.fetchone()
+            # Insert same values again
+            store.upsert_catalog_row(
+                dpid="aeos",
+                wpid="wp001",
+                reqtype="qar",
+                verid="v1",
+                msoc_path="/path",
+                has_scdm=1,
+            )
 
-        # verid, msoc_path, has_scdm should be the same
-        assert second_row[0] == first_row[0]
-        assert second_row[1] == first_row[1]
-        assert second_row[2] == first_row[2]
+            cursor.execute(
+                "SELECT verid, msoc_path, has_scdm, observed_at FROM catalog WHERE dpid=? AND wpid=? AND reqtype=?",
+                ("aeos", "wp001", "qar"),
+            )
+            second_row = cursor.fetchone()
+            second_observed_at = second_row[3]
 
-        # observed_at may have changed (it's updated on every UPSERT)
-        # This test verifies the values themselves don't change, only observed_at
+            # verid, msoc_path, has_scdm should be the same
+            assert second_row[0] == first_row[0]
+            assert second_row[1] == first_row[1]
+            assert second_row[2] == first_row[2]
 
-        store.close()
+            # observed_at should be updated to a later or equal timestamp
+            assert second_observed_at >= first_observed_at
+
+            # Verify still only one row in catalog
+            cursor.execute(
+                "SELECT COUNT(*) FROM catalog WHERE dpid=? AND wpid=? AND reqtype=?",
+                ("aeos", "wp001", "qar"),
+            )
+            count = cursor.fetchone()[0]
+            assert count == 1
 
 
 class TestGetOrCreateSurrogate:
@@ -182,71 +187,66 @@ class TestGetOrCreateSurrogate:
     def test_first_surrogate_is_dp_001(self, tmp_path: Path) -> None:
         """Test that first surrogate ID is dp_001."""
         db_path = tmp_path / "test.db"
-        store = CatalogStore(db_path)
-        store.init_schema()
 
-        surrogate = store.get_or_create_surrogate("aeos")
+        with CatalogStore(db_path) as store:
+            store.init_schema()
 
-        assert surrogate == "dp_001"
+            surrogate = store.get_or_create_surrogate("aeos")
 
-        store.close()
+            assert surrogate == "dp_001"
 
     def test_second_surrogate_is_dp_002(self, tmp_path: Path) -> None:
         """Test that second different DPID gets dp_002."""
         db_path = tmp_path / "test.db"
-        store = CatalogStore(db_path)
-        store.init_schema()
 
-        surrogate1 = store.get_or_create_surrogate("aeos")
-        surrogate2 = store.get_or_create_surrogate("haze")
+        with CatalogStore(db_path) as store:
+            store.init_schema()
 
-        assert surrogate1 == "dp_001"
-        assert surrogate2 == "dp_002"
+            surrogate1 = store.get_or_create_surrogate("aeos")
+            surrogate2 = store.get_or_create_surrogate("haze")
 
-        store.close()
+            assert surrogate1 == "dp_001"
+            assert surrogate2 == "dp_002"
 
     def test_surrogate_stability(self, tmp_path: Path) -> None:
         """Test that calling with same DPID returns same surrogate (AC5.1)."""
         db_path = tmp_path / "test.db"
-        store = CatalogStore(db_path)
-        store.init_schema()
 
-        surrogate1 = store.get_or_create_surrogate("aeos")
-        surrogate2 = store.get_or_create_surrogate("aeos")
+        with CatalogStore(db_path) as store:
+            store.init_schema()
 
-        assert surrogate1 == surrogate2
+            surrogate1 = store.get_or_create_surrogate("aeos")
+            surrogate2 = store.get_or_create_surrogate("aeos")
 
-        store.close()
+            assert surrogate1 == surrogate2
 
     def test_surrogate_monotonicity(self, tmp_path: Path) -> None:
         """Test that surrogates are assigned in order."""
         db_path = tmp_path / "test.db"
-        store = CatalogStore(db_path)
-        store.init_schema()
 
-        surrogates = [store.get_or_create_surrogate(f"dpid_{i}") for i in range(10)]
+        with CatalogStore(db_path) as store:
+            store.init_schema()
 
-        expected = [f"dp_{i + 1:03d}" for i in range(10)]
-        assert surrogates == expected
+            surrogates = [store.get_or_create_surrogate(f"dpid_{i}") for i in range(10)]
 
-        store.close()
+            expected = [f"dp_{i + 1:03d}" for i in range(10)]
+            assert surrogates == expected
 
     def test_surrogate_auto_extends(self, tmp_path: Path) -> None:
         """Test that new DPID receives fresh never-before-seen surrogate (AC5.2)."""
         db_path = tmp_path / "test.db"
-        store = CatalogStore(db_path)
-        store.init_schema()
 
-        # Create some surrogates
-        store.get_or_create_surrogate("aeos")
-        store.get_or_create_surrogate("haze")
+        with CatalogStore(db_path) as store:
+            store.init_schema()
 
-        # New DPID should get next available
-        new_surrogate = store.get_or_create_surrogate("new_dpid")
+            # Create some surrogates
+            store.get_or_create_surrogate("aeos")
+            store.get_or_create_surrogate("haze")
 
-        assert new_surrogate == "dp_003"
+            # New DPID should get next available
+            new_surrogate = store.get_or_create_surrogate("new_dpid")
 
-        store.close()
+            assert new_surrogate == "dp_003"
 
 
 class TestSnapshotCatalog:
@@ -255,44 +255,50 @@ class TestSnapshotCatalog:
     def test_snapshot_returns_dataframe(self, tmp_path: Path) -> None:
         """Test that snapshot_catalog returns a polars DataFrame."""
         db_path = tmp_path / "test.db"
-        store = CatalogStore(db_path)
-        store.init_schema()
 
-        store.upsert_catalog_row(
-            dpid="aeos",
-            wpid="wp001",
-            reqtype="qar",
-            verid="v1",
-            msoc_path="/path",
-            has_scdm=1,
-        )
+        with CatalogStore(db_path) as store:
+            store.init_schema()
 
-        df = store.snapshot_catalog()
+            store.upsert_catalog_row(
+                dpid="aeos",
+                wpid="wp001",
+                reqtype="qar",
+                verid="v1",
+                msoc_path="/path",
+                has_scdm=1,
+            )
 
-        # Check it's a polars DataFrame
-        assert hasattr(df, "columns")
-        assert hasattr(df, "shape")
+            df = store.snapshot_catalog()
 
-        # Check columns
-        expected_cols = {"dpid", "wpid", "reqtype", "verid", "msoc_path", "has_scdm", "observed_at"}
-        assert set(df.columns) == expected_cols
+            # Check it's a polars DataFrame
+            assert hasattr(df, "columns")
+            assert hasattr(df, "shape")
 
-        # Check row count
-        assert df.shape[0] == 1
+            # Check columns
+            expected_cols = {
+                "dpid",
+                "wpid",
+                "reqtype",
+                "verid",
+                "msoc_path",
+                "has_scdm",
+                "observed_at",
+            }
+            assert set(df.columns) == expected_cols
 
-        store.close()
+            # Check row count
+            assert df.shape[0] == 1
 
     def test_snapshot_catalog_empty(self, tmp_path: Path) -> None:
         """Test snapshot_catalog on empty catalog."""
         db_path = tmp_path / "test.db"
-        store = CatalogStore(db_path)
-        store.init_schema()
 
-        df = store.snapshot_catalog()
+        with CatalogStore(db_path) as store:
+            store.init_schema()
 
-        assert df.shape[0] == 0
+            df = store.snapshot_catalog()
 
-        store.close()
+            assert df.shape[0] == 0
 
 
 class TestSnapshotDpidMap:
@@ -301,37 +307,93 @@ class TestSnapshotDpidMap:
     def test_snapshot_returns_dataframe(self, tmp_path: Path) -> None:
         """Test that snapshot_dpid_map returns a polars DataFrame."""
         db_path = tmp_path / "test.db"
-        store = CatalogStore(db_path)
-        store.init_schema()
 
-        store.get_or_create_surrogate("aeos")
+        with CatalogStore(db_path) as store:
+            store.init_schema()
 
-        df = store.snapshot_dpid_map()
+            store.get_or_create_surrogate("aeos")
 
-        # Check it's a polars DataFrame
-        assert hasattr(df, "columns")
-        assert hasattr(df, "shape")
+            df = store.snapshot_dpid_map()
 
-        # Check columns
-        expected_cols = {"dpid", "surrogate_id", "first_seen_at"}
-        assert set(df.columns) == expected_cols
+            # Check it's a polars DataFrame
+            assert hasattr(df, "columns")
+            assert hasattr(df, "shape")
 
-        # Check row count
-        assert df.shape[0] == 1
+            # Check columns
+            expected_cols = {"dpid", "surrogate_id", "first_seen_at"}
+            assert set(df.columns) == expected_cols
 
-        store.close()
+            # Check row count
+            assert df.shape[0] == 1
 
     def test_snapshot_dpid_map_empty(self, tmp_path: Path) -> None:
         """Test snapshot_dpid_map on empty map."""
         db_path = tmp_path / "test.db"
-        store = CatalogStore(db_path)
-        store.init_schema()
 
-        df = store.snapshot_dpid_map()
+        with CatalogStore(db_path) as store:
+            store.init_schema()
 
-        assert df.shape[0] == 0
+            df = store.snapshot_dpid_map()
 
-        store.close()
+            assert df.shape[0] == 0
+
+
+class TestSnapshotScanLog:
+    """Tests for snapshot_scan_log method."""
+
+    def test_snapshot_scan_log_returns_dataframe(self, tmp_path: Path) -> None:
+        """Test that snapshot_scan_log returns a polars DataFrame."""
+        db_path = tmp_path / "test.db"
+
+        with CatalogStore(db_path) as store:
+            store.init_schema()
+
+            scan_id = "scan_001"
+            store.record_scan_start(scan_id)
+
+            df = store.snapshot_scan_log()
+
+            # Check it's a polars DataFrame
+            assert hasattr(df, "columns")
+            assert hasattr(df, "shape")
+
+            # Check columns
+            expected_cols = {"scan_id", "started_at", "ended_at", "status", "error_msg"}
+            assert set(df.columns) == expected_cols
+
+            # Check row count
+            assert df.shape[0] == 1
+
+    def test_snapshot_scan_log_empty(self, tmp_path: Path) -> None:
+        """Test snapshot_scan_log on empty scan_log."""
+        db_path = tmp_path / "test.db"
+
+        with CatalogStore(db_path) as store:
+            store.init_schema()
+
+            df = store.snapshot_scan_log()
+
+            assert df.shape[0] == 0
+
+    def test_snapshot_scan_log_ordered_by_started_at_desc(self, tmp_path: Path) -> None:
+        """Test that snapshot_scan_log returns rows ordered by started_at DESC."""
+        db_path = tmp_path / "test.db"
+
+        with CatalogStore(db_path) as store:
+            store.init_schema()
+
+            # Record multiple scans
+            store.record_scan_start("scan_001")
+            store.record_scan_start("scan_002")
+            store.record_scan_start("scan_003")
+
+            df = store.snapshot_scan_log()
+
+            # Should be ordered by started_at DESC (most recent first)
+            # Since we added them in order, scan_003 should be first
+            assert df.shape[0] == 3
+            assert df["scan_id"][0] == "scan_003"
+            assert df["scan_id"][2] == "scan_001"
 
 
 class TestScanLog:
@@ -340,65 +402,62 @@ class TestScanLog:
     def test_record_scan_start(self, tmp_path: Path) -> None:
         """Test recording scan start."""
         db_path = tmp_path / "test.db"
-        store = CatalogStore(db_path)
-        store.init_schema()
 
-        scan_id = "scan_001"
-        store.record_scan_start(scan_id)
+        with CatalogStore(db_path) as store:
+            store.init_schema()
 
-        cursor = store._conn.cursor()
-        cursor.execute("SELECT status FROM scan_log WHERE scan_id=?", (scan_id,))
-        row = cursor.fetchone()
+            scan_id = "scan_001"
+            store.record_scan_start(scan_id)
 
-        assert row is not None
-        assert row[0] == "running"
+            cursor = store._conn.cursor()
+            cursor.execute("SELECT status FROM scan_log WHERE scan_id=?", (scan_id,))
+            row = cursor.fetchone()
 
-        store.close()
+            assert row is not None
+            assert row[0] == "running"
 
     def test_record_scan_end_success(self, tmp_path: Path) -> None:
         """Test recording scan end with success status."""
         db_path = tmp_path / "test.db"
-        store = CatalogStore(db_path)
-        store.init_schema()
 
-        scan_id = "scan_001"
-        store.record_scan_start(scan_id)
-        store.record_scan_end(scan_id, "success")
+        with CatalogStore(db_path) as store:
+            store.init_schema()
 
-        cursor = store._conn.cursor()
-        cursor.execute("SELECT status, error_msg FROM scan_log WHERE scan_id=?", (scan_id,))
-        row = cursor.fetchone()
+            scan_id = "scan_001"
+            store.record_scan_start(scan_id)
+            store.record_scan_end(scan_id, "success")
 
-        assert row is not None
-        assert row[0] == "success"
-        assert row[1] is None
+            cursor = store._conn.cursor()
+            cursor.execute("SELECT status, error_msg FROM scan_log WHERE scan_id=?", (scan_id,))
+            row = cursor.fetchone()
 
-        store.close()
+            assert row is not None
+            assert row[0] == "success"
+            assert row[1] is None
 
     def test_record_scan_end_failure_with_message(self, tmp_path: Path) -> None:
         """Test recording scan end with failure and error message."""
         db_path = tmp_path / "test.db"
-        store = CatalogStore(db_path)
-        store.init_schema()
 
-        scan_id = "scan_001"
-        error_msg = "Connection timeout"
-        store.record_scan_start(scan_id)
-        store.record_scan_end(scan_id, "failure", error_msg)
+        with CatalogStore(db_path) as store:
+            store.init_schema()
 
-        cursor = store._conn.cursor()
-        cursor.execute(
-            "SELECT status, error_msg, ended_at FROM scan_log WHERE scan_id=?",
-            (scan_id,),
-        )
-        row = cursor.fetchone()
+            scan_id = "scan_001"
+            error_msg = "Connection timeout"
+            store.record_scan_start(scan_id)
+            store.record_scan_end(scan_id, "failure", error_msg)
 
-        assert row is not None
-        assert row[0] == "failure"
-        assert row[1] == error_msg
-        assert row[2] is not None  # ended_at should be set
+            cursor = store._conn.cursor()
+            cursor.execute(
+                "SELECT status, error_msg, ended_at FROM scan_log WHERE scan_id=?",
+                (scan_id,),
+            )
+            row = cursor.fetchone()
 
-        store.close()
+            assert row is not None
+            assert row[0] == "failure"
+            assert row[1] == error_msg
+            assert row[2] is not None  # ended_at should be set
 
 
 class TestConcurrentReadDuringWrite:
@@ -408,27 +467,38 @@ class TestConcurrentReadDuringWrite:
         """Test that WAL mode allows concurrent read while write is in progress."""
         db_path = tmp_path / "test.db"
 
-        store1 = CatalogStore(db_path)
-        store1.init_schema()
-        store1.close()
+        with CatalogStore(db_path) as store_init:
+            store_init.init_schema()
 
         # Open two connections
         store_writer = CatalogStore(db_path)
         store_reader = CatalogStore(db_path)
 
-        # Insert data in writer
-        store_writer.upsert_catalog_row(
-            dpid="aeos",
-            wpid="wp001",
-            reqtype="qar",
-            verid="v1",
-            msoc_path="/path",
-            has_scdm=1,
-        )
+        try:
+            # Hold an explicit write transaction open on the writer without committing
+            store_writer._conn.execute("BEGIN IMMEDIATE")
+            cursor = store_writer._conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO catalog (dpid, wpid, reqtype, verid, msoc_path, has_scdm, observed_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                ("aeos", "wp001", "qar", "v1", "/path", 1, "2026-05-14T00:00:00+00:00"),
+            )
+            # Transaction is open but not committed
 
-        # Reader should be able to read (even if writer is mid-transaction)
-        df_reader = store_reader.snapshot_catalog()
-        assert df_reader.shape[0] >= 0  # Should not block
+            # Reader should still be able to read via WAL mode snapshot
+            df_reader = store_reader.snapshot_catalog()
+            # Reader sees committed data only (the INSERT is not yet committed)
+            assert df_reader.shape[0] == 0
 
-        store_writer.close()
-        store_reader.close()
+            # Now commit the writer transaction
+            store_writer._conn.commit()
+
+            # Reader should now see the inserted row
+            df_reader = store_reader.snapshot_catalog()
+            assert df_reader.shape[0] == 1
+
+        finally:
+            store_writer.close()
+            store_reader.close()
