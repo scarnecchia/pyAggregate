@@ -1,6 +1,7 @@
 # pattern: Imperative Shell
 """Filesystem scanner that walks requests tree and populates catalog."""
 
+import fcntl
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
@@ -12,6 +13,58 @@ from pyaggregate.core.paths import pick_latest_approved, parse_request_id
 from pyaggregate.io.catalog_store import CatalogStore
 
 logger = logging.getLogger(__name__)
+
+
+# Global dictionary to keep lock file objects alive
+_lock_files: dict[int, object] = {}
+
+
+def acquire_scan_lock(lock_path: Path) -> int | None:
+    """Attempt to acquire exclusive non-blocking flock on lock file.
+
+    Opens <lock_path> for writing and attempts to acquire an exclusive
+    non-blocking lock via fcntl.flock(). Returns the file descriptor on
+    success, None if the lock is already held by another process.
+
+    Args:
+        lock_path: Path to lock file
+
+    Returns:
+        File descriptor (int) on success, None if lock already held
+    """
+    try:
+        # Open lock file for writing, create if doesn't exist
+        fd_obj = open(lock_path, "w")
+        try:
+            # Try to acquire exclusive non-blocking lock
+            fcntl.flock(fd_obj, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            # Keep file object alive to maintain lock
+            fd_num = fd_obj.fileno()
+            _lock_files[fd_num] = fd_obj
+            return fd_num
+        except BlockingIOError:
+            # Lock is held by another process
+            fd_obj.close()
+            return None
+    except Exception as e:
+        logger.error("failed to acquire lock: %s", e)
+        return None
+
+
+def release_scan_lock(fd: int) -> None:
+    """Release a scan lock held by file descriptor.
+
+    Args:
+        fd: File descriptor returned by acquire_scan_lock
+    """
+    if fd in _lock_files:
+        fd_obj = _lock_files.pop(fd)
+        try:
+            fcntl.flock(fd_obj, fcntl.LOCK_UN)
+        except Exception as e:
+            logger.error("failed to unlock: %s", e)
+        finally:
+            fd_obj.close()
 
 
 @dataclass(frozen=True)
