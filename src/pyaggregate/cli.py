@@ -7,6 +7,7 @@ import typer
 
 from pyaggregate.config import load_config, resolve_config_path
 from pyaggregate.io.catalog_store import CatalogStore
+from pyaggregate.io.scanner import run_scan, run_scan_dry
 
 app = typer.Typer(
     name="pyaggregate",
@@ -26,11 +27,36 @@ CONFIG_OPTION = typer.Option(
 @app.command()
 def scan(
     config: Path | None = CONFIG_OPTION,
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Show intended changes without modifying the catalog.",
+    ),
 ) -> None:
     """Walk the requests tree and update the catalog with latest approved submissions."""
-    _config_path = resolve_config_path(config)
-    typer.echo(f"scan: not yet implemented (config: {_config_path})")
-    raise typer.Exit(code=1)
+    try:
+        config_path = resolve_config_path(config)
+        cfg = load_config(config_path)
+
+        with CatalogStore(cfg.state.catalog_db) as store:
+            if dry_run:
+                changes = run_scan_dry(cfg, store)
+                if changes:
+                    typer.echo("Dry run: intended changes:")
+                    for change in changes:
+                        typer.echo(f"  {change}")
+                else:
+                    typer.echo("Dry run: no changes")
+            else:
+                result = run_scan(cfg, store)
+                typer.echo(
+                    f"Scan complete: {result.rows_upserted} rows upserted, "
+                    f"{result.packages_skipped} packages skipped, "
+                    f"{result.errors} errors"
+                )
+    except Exception as e:
+        typer.echo(f"failed to scan: {e}", err=True)
+        raise typer.Exit(code=1) from e
 
 
 @app.command()
