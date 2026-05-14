@@ -26,10 +26,7 @@ def should_exclude_rollup(table_name: str, exclude_patterns: tuple[str, ...]) ->
     Returns:
         True if table_name matches any pattern, False otherwise
     """
-    for pattern in exclude_patterns:
-        if fnmatch.fnmatch(table_name, pattern):
-            return True
-    return False
+    return any(fnmatch.fnmatch(table_name, pattern) for pattern in exclude_patterns)
 
 
 def compute_rollup(
@@ -56,16 +53,16 @@ def compute_rollup(
 
     # Determine grouping keys: all non-numeric columns if not specified
     if rollup_keys is None:
-        numeric_cols = {col for col, dtype in zip(working.columns, working.schema.values())
-                       if dtype.is_numeric()}
+        col_types = zip(working.columns, working.schema.values(), strict=True)
+        numeric_cols = {col for col, dtype in col_types if dtype.is_numeric()}
         rollup_keys_final = [col for col in working.columns if col not in numeric_cols]
     else:
         rollup_keys_final = list(rollup_keys)
 
     # Determine aggregations: sum for all numeric columns if not specified
     if rollup_aggs is None:
-        numeric_cols = {col for col, dtype in zip(working.columns, working.schema.values())
-                       if dtype.is_numeric()}
+        col_types = zip(working.columns, working.schema.values(), strict=True)
+        numeric_cols = {col for col, dtype in col_types if dtype.is_numeric()}
         rollup_aggs_final = {col: "sum" for col in numeric_cols}
     else:
         rollup_aggs_final = rollup_aggs
