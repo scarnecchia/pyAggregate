@@ -4,7 +4,8 @@ from pathlib import Path
 
 import polars as pl
 import pytest
-from hypothesis import given, strategies as st
+from hypothesis import given
+from hypothesis import strategies as st
 
 from pyaggregate.config import AggTypeConfig
 from pyaggregate.core.input_resolution import TableInput
