@@ -403,11 +403,13 @@ class TestFilterDpidMap:
     """Direct unit tests for filter_dpid_map pure function."""
 
     def test_filters_to_used_surrogates(self) -> None:
-        dpid_map = pl.DataFrame({
-            "dpid": ["aeos", "cms", "kpsc"],
-            "surrogate_id": ["dp_001", "dp_002", "dp_003"],
-            "first_seen_at": ["2026-01-01"] * 3,
-        })
+        dpid_map = pl.DataFrame(
+            {
+                "dpid": ["aeos", "cms", "kpsc"],
+                "surrogate_id": ["dp_001", "dp_002", "dp_003"],
+                "first_seen_at": ["2026-01-01"] * 3,
+            }
+        )
         table_outputs = {
             "ae": {
                 "masked": pl.DataFrame({"surrogate_id": ["dp_001", "dp_002"], "val": [1, 2]}),
@@ -420,11 +422,13 @@ class TestFilterDpidMap:
         assert set(result["surrogate_id"].to_list()) == {"dp_001", "dp_002"}
 
     def test_empty_masked_surrogates_returns_zero_rows(self) -> None:
-        dpid_map = pl.DataFrame({
-            "dpid": ["aeos"],
-            "surrogate_id": ["dp_001"],
-            "first_seen_at": ["2026-01-01"],
-        })
+        dpid_map = pl.DataFrame(
+            {
+                "dpid": ["aeos"],
+                "surrogate_id": ["dp_001"],
+                "first_seen_at": ["2026-01-01"],
+            }
+        )
         table_outputs = {
             "ae": {
                 "stacked": pl.DataFrame({"dpid": ["aeos"], "val": [1]}),
@@ -438,17 +442,21 @@ class TestFilterDpidMap:
         assert "dpid" in result.columns
 
     def test_null_surrogates_excluded(self) -> None:
-        dpid_map = pl.DataFrame({
-            "dpid": ["aeos"],
-            "surrogate_id": ["dp_001"],
-            "first_seen_at": ["2026-01-01"],
-        })
+        dpid_map = pl.DataFrame(
+            {
+                "dpid": ["aeos"],
+                "surrogate_id": ["dp_001"],
+                "first_seen_at": ["2026-01-01"],
+            }
+        )
         table_outputs = {
             "ae": {
-                "masked": pl.DataFrame({
-                    "surrogate_id": [None, "dp_001"],
-                    "val": [1, 2],
-                }),
+                "masked": pl.DataFrame(
+                    {
+                        "surrogate_id": [None, "dp_001"],
+                        "val": [1, 2],
+                    }
+                ),
             },
         }
 
