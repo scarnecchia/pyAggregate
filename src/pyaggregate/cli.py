@@ -7,6 +7,7 @@ app = typer.Typer(
     name="pyaggregate",
     help="Unified QA, QM, and SCDM Snapshot aggregation CLI.",
     no_args_is_help=True,
+    rich_markup_mode="rich",
 )
 
 
