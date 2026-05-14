@@ -1,6 +1,7 @@
 # pattern: Imperative Shell
 """CLI entry point for pyaggregate."""
 
+import logging
 from pathlib import Path
 
 import typer
@@ -8,6 +9,7 @@ import typer
 from pyaggregate.config import load_config, resolve_config_path
 from pyaggregate.io.catalog_store import CatalogStore
 from pyaggregate.io.scanner import run_scan, run_scan_dry
+from pyaggregate.log_config import configure_logging
 
 app = typer.Typer(
     name="pyaggregate",
@@ -22,6 +24,31 @@ CONFIG_OPTION = typer.Option(
     envvar="PYAGGREGATE_CONFIG",
     help="Path to config file. Can be set via PYAGGREGATE_CONFIG env var.",
 )
+
+
+def configure_app(verbose: bool = False) -> None:
+    """Configure application logging before any subcommand runs.
+
+    This is called as a typer callback before subcommands execute.
+
+    Args:
+        verbose: Enable DEBUG level logging
+    """
+    log_level = logging.DEBUG if verbose else logging.INFO
+    configure_logging(log_dir=None, level=log_level)
+
+
+# Register callback to run before any command
+@app.callback()
+def main(
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        help="Enable DEBUG level logging",
+    ),
+) -> None:
+    """pyaggregate: Unified QA, QM, and SCDM Snapshot aggregation."""
+    configure_app(verbose)
 
 
 def classify_exception(exc: Exception) -> str:
