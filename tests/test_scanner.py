@@ -327,3 +327,48 @@ class TestScannerMultipleDPIDs:
                 dpid_map["surrogate_id"].to_list()
             )
             assert surrogates == ["dp_001", "dp_002", "dp_003"]
+
+    def test_scan_multiple_dpids_with_multiple_workplans(
+        self, tmp_path: Path
+    ) -> None:
+        """Scan multiple DPIDs with multiple workplans per DPID."""
+        specs = [
+            # aeos with 2 workplans, 3 reqtypes
+            TreeSpec("aeos", "qar", "wp041", "v01", has_msoc=True),
+            TreeSpec("aeos", "qar", "wp042", "v01", has_msoc=True),
+            TreeSpec("aeos", "qmr", "wp041", "v01", has_msoc=True),
+            # cms with 2 workplans
+            TreeSpec("cms", "qar", "wp041", "v01", has_msoc=True),
+            TreeSpec("cms", "qmr", "wp051", "v01", has_msoc=True),
+            # fake_dp with 1 workplan
+            TreeSpec("fake_dp", "qar", "wp041", "v01", has_msoc=True),
+        ]
+        requests_root, catalog_db = build_request_tree(tmp_path, specs)
+        config = create_config(requests_root, catalog_db, tmp_path)
+
+        with CatalogStore(catalog_db) as store:
+            store.init_schema()
+            result = run_scan(config, store)
+
+        assert result.rows_upserted == 6
+        assert result.packages_skipped == 0
+
+        with CatalogStore(catalog_db) as store:
+            cat = store.snapshot_catalog()
+            dpid_map = store.snapshot_dpid_map()
+
+            assert len(cat) == 6
+            assert len(dpid_map) == 3
+
+            # Verify all 3 DPIDs
+            dpids = set(cat["dpid"].to_list())
+            assert dpids == {"aeos", "cms", "fake_dp"}
+
+            # Count entries per DPID
+            aeos_count = len(cat.filter(cat["dpid"] == "aeos"))
+            cms_count = len(cat.filter(cat["dpid"] == "cms"))
+            fake_count = len(cat.filter(cat["dpid"] == "fake_dp"))
+
+            assert aeos_count == 3
+            assert cms_count == 2
+            assert fake_count == 1
