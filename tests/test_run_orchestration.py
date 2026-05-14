@@ -9,7 +9,7 @@ import polars as pl
 import pytest
 from typer.testing import CliRunner
 
-from pyaggregate.cli import app
+from pyaggregate.cli import app, classify_exception
 from pyaggregate.config import AggTypeConfig, AppConfig, OutputConfig, ScanConfig, StateConfig
 from pyaggregate.io.catalog_store import CatalogStore
 
@@ -604,3 +604,31 @@ class TestRunOrchestration:
         assert "ended_at" in summary
         assert "tables_succeeded" in summary
         assert "exit_code" in summary
+
+
+class TestClassifyException:
+    """Direct unit tests for classify_exception pure function."""
+
+    def test_file_not_found(self) -> None:
+        assert classify_exception(FileNotFoundError("missing.sas7bdat")) == "source_missing"
+
+    def test_permission_error(self) -> None:
+        assert classify_exception(PermissionError("denied")) == "source_permission"
+
+    def test_value_error(self) -> None:
+        assert classify_exception(ValueError("bad data")) == "parse_error"
+
+    def test_type_error(self) -> None:
+        assert classify_exception(TypeError("wrong type")) == "parse_error"
+
+    def test_unknown_exception(self) -> None:
+        assert classify_exception(RuntimeError("unexpected")) == "unknown"
+
+    def test_pyarrow_exception(self) -> None:
+        try:
+            import pyarrow
+
+            exc = pyarrow.ArrowInvalid("bad arrow data")
+            assert classify_exception(exc) == "arrow_error"
+        except ImportError:
+            pytest.skip("pyarrow not installed")

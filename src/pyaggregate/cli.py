@@ -41,10 +41,10 @@ def classify_exception(exc: Exception) -> str:
         return "source_missing"
     if isinstance(exc, PermissionError):
         return "source_permission"
-    if isinstance(exc, (ValueError, TypeError)):
-        return "parse_error"
     if exc.__class__.__module__.startswith("pyarrow"):
         return "arrow_error"
+    if isinstance(exc, (ValueError, TypeError)):
+        return "parse_error"
     return "unknown"
 
 
