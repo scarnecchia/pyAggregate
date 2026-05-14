@@ -1,4 +1,4 @@
-# pattern: Functional Core
+# pattern: Imperative Shell
 """TOML config loader and dataclass definitions."""
 
 import os

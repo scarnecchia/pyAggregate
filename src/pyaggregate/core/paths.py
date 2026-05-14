@@ -65,7 +65,7 @@ def verid_sort_key(verid: str) -> int:
         Numeric sort key (lexicographic would incorrectly order v10 before v2)
     """
     # Remove 'v' prefix and convert to int
-    numeric_part = verid.lstrip("v")
+    numeric_part = verid.removeprefix("v")
     return int(numeric_part)
 
 
