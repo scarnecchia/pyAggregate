@@ -57,6 +57,14 @@ def write_run(
     # Write parquet files for each table and output type
     for table_name, outputs_dict in table_outputs.items():
         try:
+            logger.info(
+                "writing output",
+                extra={
+                    "agg_type": agg_type,
+                    "run_id": run_id,
+                    "table": table_name,
+                },
+            )
             for output_type, df in outputs_dict.items():
                 output_dir = run_dir / output_type
                 output_dir.mkdir(parents=True, exist_ok=True)
@@ -124,6 +132,14 @@ def write_run(
 
         # Atomic rename to final path
         os.rename(str(latest_tmp), str(latest_path))
+
+        logger.info(
+            "symlink updated",
+            extra={
+                "agg_type": agg_type,
+                "target": run_id,
+            },
+        )
 
 
 def filter_dpid_map(

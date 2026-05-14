@@ -107,6 +107,8 @@ def run_scan(config: AppConfig, store: CatalogStore) -> ScanResult:
         scan_id = str(uuid4())
         store.record_scan_start(scan_id)
 
+        logger.info("scan started", extra={"scan_id": scan_id})
+
         rows_upserted = 0
         packages_skipped = 0
         errors = 0
@@ -114,6 +116,14 @@ def run_scan(config: AppConfig, store: CatalogStore) -> ScanResult:
         try:
             rows_upserted, packages_skipped, errors = _scan_requests_tree(config, store)
             store.record_scan_end(scan_id, "success")
+            logger.info(
+                "scan complete",
+                extra={
+                    "scan_id": scan_id,
+                    "rows_upserted": rows_upserted,
+                    "packages_skipped": packages_skipped,
+                },
+            )
         except Exception as e:
             logger.exception("scan failed: %s", e)
             store.record_scan_end(scan_id, "failure", str(e))
@@ -165,8 +175,8 @@ def _walk_requests_tree(requests_root: Path) -> Iterator[tuple[RequestId, Path, 
                     rid = parse_request_id(version_dir.name)
                     if rid is None:
                         logger.warning(
-                            "skipping unparseable directory: %s",
-                            version_dir.name,
+                            "unparseable package directory",
+                            extra={"dirname": version_dir.name},
                         )
                         continue
 

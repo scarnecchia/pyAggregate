@@ -105,6 +105,17 @@ def aggregate_table(
     Returns:
         Dictionary with "stacked", "masked", and "rollup" DataFrames (rollup may be absent)
     """
+    # Log aggregation start
+    input_count = len(table_inputs)
+    logger.info(
+        "aggregating table",
+        extra={
+            "table": table_name,
+            "agg_type": agg_config.name,
+            "input_count": input_count,
+        },
+    )
+
     # If no inputs, return empty DataFrames with schema
     if not table_inputs:
         empty_stacked = pl.DataFrame(
@@ -211,5 +222,17 @@ def aggregate_table(
 
         rollup = compute_rollup(stacked, rollup_keys, rollup_aggs)
         result["rollup"] = rollup
+
+    # Log aggregation completion
+    stacked_rows = len(stacked)
+    masked_rows = len(masked)
+    logger.info(
+        "table aggregated",
+        extra={
+            "table": table_name,
+            "stacked_rows": stacked_rows,
+            "masked_rows": masked_rows,
+        },
+    )
 
     return result
