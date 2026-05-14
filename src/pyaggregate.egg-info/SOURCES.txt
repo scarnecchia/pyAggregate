@@ -1,0 +1,11 @@
+pyproject.toml
+src/pyaggregate/__init__.py
+src/pyaggregate/cli.py
+src/pyaggregate.egg-info/PKG-INFO
+src/pyaggregate.egg-info/SOURCES.txt
+src/pyaggregate.egg-info/dependency_links.txt
+src/pyaggregate.egg-info/entry_points.txt
+src/pyaggregate.egg-info/requires.txt
+src/pyaggregate.egg-info/top_level.txt
+src/pyaggregate/core/__init__.py
+src/pyaggregate/io/__init__.py
