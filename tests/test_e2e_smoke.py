@@ -32,6 +32,24 @@ def _patch_sas_reader_for_e2e(patch_sas_reader_for_parquet):
 class TestE2ESmokeTest:
     """End-to-end smoke test of the full pipeline."""
 
+    def test_help_displays_all_subcommands_ac1_2(self) -> None:
+        """AC1.2: --help displays all six subcommand names.
+
+        Asserts that the help output contains: scan, run, init-db,
+        show-catalog, show-dpid-map, show-scans.
+        """
+        result = runner.invoke(app, ["--help"])
+        assert result.exit_code == 0, f"--help failed: {result.output}"
+
+        help_text = result.stdout
+
+        # Verify all six subcommand names appear in help output
+        subcommands = ["scan", "run", "init-db", "show-catalog", "show-dpid-map", "show-scans"]
+        for subcommand in subcommands:
+            assert (
+                subcommand in help_text
+            ), f"Subcommand '{subcommand}' not found in help output"
+
     def test_full_pipeline_ac9_1(self, tmp_path: Path) -> None:
         """AC9.1: Full pipeline init-db -> scan -> run produces consistent outputs.
 

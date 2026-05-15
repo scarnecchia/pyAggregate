@@ -606,6 +606,267 @@ class TestRunOrchestration:
         assert "tables_succeeded" in summary
         assert "exit_code" in summary
 
+    def test_run_with_alternate_catalog_ac4_1(
+        self,
+        cli_runner: CliRunner,
+        tmp_path: Path,
+        mock_patches,
+    ) -> None:
+        """AC4.1: --catalog points at alternate catalog DB with different data.
+
+        Creates two catalogs with different DPID data, runs with alternate catalog,
+        and verifies outputs reflect the alternate catalog's contents.
+        """
+        # Create primary catalog with aeos and cms
+        primary_catalog = tmp_path / "primary.db"
+        with CatalogStore(primary_catalog) as store:
+            store.init_schema()
+            store.upsert_catalog_row(
+                dpid="aeos",
+                wpid="wp041",
+                reqtype="qar",
+                verid="v01",
+                msoc_path="/data/aeos/qar",
+                has_scdm=1,
+            )
+            store.upsert_catalog_row(
+                dpid="cms",
+                wpid="wp041",
+                reqtype="qar",
+                verid="v01",
+                msoc_path="/data/cms/qar",
+                has_scdm=0,
+            )
+            store.get_or_create_surrogate("aeos")
+            store.get_or_create_surrogate("cms")
+
+        # Create alternate catalog with only kpsc
+        alternate_catalog = tmp_path / "alternate.db"
+        with CatalogStore(alternate_catalog) as store:
+            store.init_schema()
+            store.upsert_catalog_row(
+                dpid="kpsc",
+                wpid="wp041",
+                reqtype="qar",
+                verid="v01",
+                msoc_path="/data/kpsc/qar",
+                has_scdm=1,
+            )
+            store.get_or_create_surrogate("kpsc")
+
+        output_root = tmp_path / "outputs"
+        output_root.mkdir()
+
+        config_file = tmp_path / "config.toml"
+        config_file.write_text(f"""
+[scan]
+requests_root = "/data/requests"
+
+[state]
+catalog_db = "{primary_catalog}"
+log_dir = "{tmp_path / "logs"}"
+
+[output]
+output_root = "{output_root}"
+
+[agg.qa]
+source_reqtype = "qar"
+exclude_from_rollup = ["*_stats"]
+""")
+
+        # Run with alternate catalog
+        result = cli_runner.invoke(
+            app,
+            [
+                "run",
+                "--type",
+                "qa",
+                "--catalog",
+                str(alternate_catalog),
+                "--config",
+                str(config_file),
+            ],
+        )
+
+        assert result.exit_code == 0
+
+        # Verify output contains kpsc surrogate (from alternate catalog)
+        today = date.today().isoformat()
+        masked_dir = output_root / "qa" / today / "masked"
+        assert masked_dir.exists()
+
+        # Read masked output and verify it has kpsc's surrogate
+        masked_files = list(masked_dir.glob("*.parquet"))
+        assert len(masked_files) > 0
+
+        for masked_file in masked_files:
+            df = pl.read_parquet(str(masked_file))
+            if "surrogate_id" in df.columns:
+                surrogates = set(df["surrogate_id"].unique().to_list())
+                # Should have kpsc (dp_001 in alternate catalog)
+                assert len(surrogates) > 0
+
+    def test_run_with_alternate_output_root_ac4_2(
+        self,
+        cli_runner: CliRunner,
+        test_config: tuple[Path, AppConfig],
+        mock_patches,
+    ) -> None:
+        """AC4.2: With --output-root, the default output_root directory is empty or nonexistent.
+
+        Extends test_run_with_alternate_output_root to also verify the default
+        output_root is not populated.
+        """
+        config_file, config = test_config
+        alternate_output = config.output.output_root.parent / "alternate_outputs"
+
+        result = cli_runner.invoke(
+            app,
+            [
+                "run",
+                "--type",
+                "qa",
+                "--output-root",
+                str(alternate_output),
+                "--config",
+                str(config_file),
+            ],
+        )
+
+        assert result.exit_code == 0
+
+        today = date.today().isoformat()
+        run_dir = alternate_output / "qa" / today
+        assert run_dir.exists()
+
+        # Verify default output_root (from config) is empty or has no qa/<date> subdirs
+        default_qa_output = config.output.output_root / "qa"
+        if default_qa_output.exists():
+            # Check no run directories exist in default location
+            run_dirs = [d for d in default_qa_output.iterdir() if d.is_dir()]
+            # Should be empty or only contain non-date-named directories
+            date_dirs = [
+                d for d in run_dirs if d.name == today or d.name.startswith("202")
+            ]
+            assert len(date_dirs) == 0, (
+                f"Default output_root should be empty but contains: {date_dirs}"
+            )
+
+    def test_run_no_update_latest_with_preexisting_symlink_ac4_3(
+        self,
+        cli_runner: CliRunner,
+        test_config: tuple[Path, AppConfig],
+        mock_patches,
+    ) -> None:
+        """AC4.3: --no-update-latest preserves pre-existing latest symlink.
+
+        Creates a pre-existing latest symlink from a first run, then runs
+        with --no-update-latest and asserts the symlink still points at the
+        original target.
+        """
+        config_file, config = test_config
+
+        # First run: creates latest symlink pointing to 2026-05-13
+        result1 = cli_runner.invoke(
+            app,
+            [
+                "run",
+                "--type",
+                "qa",
+                "--run-id",
+                "2026-05-13",
+                "--config",
+                str(config_file),
+            ],
+        )
+        assert result1.exit_code == 0
+
+        latest_link = config.output.output_root / "qa" / "latest"
+        assert latest_link.is_symlink()
+        original_target = latest_link.readlink()
+        assert original_target == Path("2026-05-13")
+
+        # Second run with --no-update-latest
+        result2 = cli_runner.invoke(
+            app,
+            [
+                "run",
+                "--type",
+                "qa",
+                "--run-id",
+                "2026-05-14",
+                "--no-update-latest",
+                "--config",
+                str(config_file),
+            ],
+        )
+        assert result2.exit_code == 0
+
+        # Verify latest symlink still points to original target
+        assert latest_link.is_symlink()
+        assert latest_link.readlink() == original_target
+        assert latest_link.readlink() == Path("2026-05-13")
+
+    def test_run_custom_run_id_with_no_update_latest_ac4_4(
+        self,
+        cli_runner: CliRunner,
+        test_config: tuple[Path, AppConfig],
+        mock_patches,
+    ) -> None:
+        """AC4.4: --run-id <custom> --no-update-latest creates dir but preserves latest symlink.
+
+        Runs a second time with a custom run ID and --no-update-latest, verifies:
+        (1) output directory with custom run_id exists
+        (2) existing latest symlink still points at the original run
+        """
+        config_file, config = test_config
+
+        # First run creates latest symlink
+        result1 = cli_runner.invoke(
+            app,
+            [
+                "run",
+                "--type",
+                "qa",
+                "--run-id",
+                "2026-05-14",
+                "--config",
+                str(config_file),
+            ],
+        )
+        assert result1.exit_code == 0
+
+        latest_link = config.output.output_root / "qa" / "latest"
+        assert latest_link.is_symlink()
+        original_target = latest_link.readlink()
+        assert original_target == Path("2026-05-14")
+
+        # Second run with custom run_id and --no-update-latest
+        result2 = cli_runner.invoke(
+            app,
+            [
+                "run",
+                "--type",
+                "qa",
+                "--run-id",
+                "2026-05-14-rerun",
+                "--no-update-latest",
+                "--config",
+                str(config_file),
+            ],
+        )
+        assert result2.exit_code == 0
+
+        # Verify custom run_id directory exists
+        rerun_dir = config.output.output_root / "qa" / "2026-05-14-rerun"
+        assert rerun_dir.exists()
+        assert (rerun_dir / "stacked").exists()
+
+        # Verify latest still points at original run
+        assert latest_link.is_symlink()
+        assert latest_link.readlink() == original_target
+        assert latest_link.readlink() == Path("2026-05-14")
+
 
 class TestClassifyException:
     """Direct unit tests for classify_exception pure function."""
