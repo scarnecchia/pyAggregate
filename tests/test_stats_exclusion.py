@@ -65,7 +65,7 @@ class TestAggregateTableExcludeRollup:
         return pl.DataFrame(
             {
                 "dpid": ["aeos"],
-                "surrogate_id": [1],
+                "surrogate_id": ["dp_001"],
             }
         )
 

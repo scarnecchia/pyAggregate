@@ -35,7 +35,7 @@ class TestComputeRollupBasic:
         stacked = pl.DataFrame(
             {
                 "dpid": ["aeos", "aeos"],
-                "surrogate_id": [1, 1],
+                "surrogate_id": ["dp_001", "dp_001"],
                 "region": ["CA", "CA"],
                 "count": [10, 20],
             }
@@ -146,7 +146,7 @@ class TestComputeRollupBasic:
         stacked = pl.DataFrame(
             {
                 "dpid": ["aeos", "aeos"],
-                "surrogate_id": [1, 2],
+                "surrogate_id": ["dp_001", "dp_002"],
                 "region": ["CA", "TX"],
                 "count": [10, 20],
             }
@@ -315,7 +315,7 @@ class TestAggregateTableWithRollup:
         return pl.DataFrame(
             {
                 "dpid": ["aeos", "cms"],
-                "surrogate_id": [1, 2],
+                "surrogate_id": ["dp_001", "dp_002"],
             }
         )
 

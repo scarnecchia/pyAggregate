@@ -46,7 +46,7 @@ def write_run(
 
     # Clean up orphaned .tmp files from previous interrupted runs
     for tmp_file in run_dir.rglob("*.tmp"):
-        logger.info(f"Removing orphaned tmp file: {tmp_file}")
+        logger.info("Removing orphaned tmp file: %s", tmp_file)
         tmp_file.unlink()
 
     started_at = datetime.now(UTC).isoformat()
@@ -80,7 +80,7 @@ def write_run(
 
             tables_succeeded.append(table_name)
         except Exception as e:
-            logger.error(f"Failed to write table {table_name}: {e}", exc_info=True)
+            logger.error("Failed to write table %s: %s", table_name, e, exc_info=True)
             tables_skipped_from_writes.append(
                 {
                     "table": table_name,
@@ -148,8 +148,7 @@ def filter_dpid_map(
 ) -> pl.DataFrame:
     """Filter dpid_map to only include surrogates used in this run's masked outputs.
 
-    Pure function for Functional Core. Extracts and filters to surrogates that appear
-    in the masked outputs of any table in the run.
+    Extracts and filters to surrogates that appear in the masked outputs of any table in the run.
 
     Args:
         dpid_map_frame: Full dpid_map DataFrame
@@ -183,8 +182,8 @@ def build_run_summary(
 ) -> dict:
     """Build the run_summary dict for JSON serialization.
 
-    Pure function for Functional Core. Constructs the structured summary artifact
-    that operators use to identify failures without parsing logs.
+    Constructs the structured summary artifact that operators use to identify failures
+    without parsing logs.
 
     Args:
         run_id: Run identifier

@@ -1,4 +1,3 @@
-# pattern: Imperative Shell
 """End-to-end smoke test exercising the full CLI pipeline.
 
 Verifies AC9.1 and AC9.2: Starting from an empty state directory and a

@@ -1,4 +1,4 @@
-# pattern: Imperative Shell
+# pattern: Mixed (I/O: aggregate_table; Pure: compute_rollup, should_exclude_rollup)
 """Pipeline orchestration for stacked, masked, and rollup aggregation outputs."""
 
 import fnmatch
@@ -125,7 +125,7 @@ def aggregate_table(
         )
         empty_masked = pl.DataFrame(
             {
-                "surrogate_id": pl.Series([], dtype=pl.Int64),
+                "surrogate_id": pl.Series([], dtype=pl.Utf8),
             }
         )
         result = {"stacked": empty_stacked, "masked": empty_masked}

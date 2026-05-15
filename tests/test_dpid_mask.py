@@ -14,7 +14,7 @@ def dpid_map_fixture() -> pl.DataFrame:
     return pl.DataFrame(
         {
             "dpid": ["aeos", "cms", "kpsc"],
-            "surrogate_id": [1, 2, 3],
+            "surrogate_id": ["dp_001", "dp_002", "dp_003"],
         }
     )
 
@@ -38,7 +38,7 @@ class TestMaskDpidBasic:
         assert result.height == 3
         # Check specific surrogate values
         surrogates = result["surrogate_id"].to_list()
-        assert surrogates == [1, 2, 1]  # aeos->1, cms->2, aeos->1
+        assert surrogates == ["dp_001", "dp_002", "dp_001"]  # aeos->dp_001, cms->dp_002, aeos->dp_001
 
     def test_mask_dpid_empty_frame(self, dpid_map_fixture: pl.DataFrame) -> None:
         """Test masking an empty DataFrame returns correct schema."""
@@ -67,7 +67,7 @@ class TestMaskDpidBasic:
         result = mask_dpid(frame, dpid_map_fixture)
 
         assert result.height == 1
-        assert result["surrogate_id"][0] == 3
+        assert result["surrogate_id"][0] == "dp_003"
 
     def test_mask_dpid_preserves_other_columns(self, dpid_map_fixture: pl.DataFrame) -> None:
         """Test that masking preserves columns other than dpid."""

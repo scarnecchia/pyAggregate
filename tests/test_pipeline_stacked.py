@@ -55,7 +55,7 @@ def dpid_map_fixture() -> pl.DataFrame:
     return pl.DataFrame(
         {
             "dpid": ["aeos", "cms", "kpsc"],
-            "surrogate_id": [1, 2, 3],
+            "surrogate_id": ["dp_001", "dp_002", "dp_003"],
         }
     )
 

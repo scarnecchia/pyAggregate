@@ -1,4 +1,4 @@
-# pattern: Imperative Shell
+# pattern: Mixed (I/O: load_config, resolve_config_path; Pure: dataclass defs, validation)
 """TOML config loader and dataclass definitions."""
 
 import os

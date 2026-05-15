@@ -67,7 +67,7 @@ def test_config(tmp_path: Path) -> tuple[Path, AppConfig]:
         agg_types={
             "qa": AggTypeConfig(name="qa", source_reqtype="qar", exclude_from_rollup=("*_stats",)),
             "qm": AggTypeConfig(name="qm", source_reqtype="qmr", exclude_from_rollup=("*_stats",)),
-            "sdd": AggTypeConfig(name="sdd", source_field="has_scdm", exclude_from_rollup=()),
+            "sdd": AggTypeConfig(name="sdd", source_field="has_scdm", subdirectory="scdm_snapshot", exclude_from_rollup=()),
         },
     )
 
@@ -94,6 +94,7 @@ exclude_from_rollup = ["*_stats"]
 
 [agg.sdd]
 source_field = "has_scdm"
+subdirectory = "scdm_snapshot"
 exclude_from_rollup = []
 """.format(catalog_db, tmp_path / "logs", output_root)
     )

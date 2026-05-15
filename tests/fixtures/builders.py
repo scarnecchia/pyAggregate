@@ -1,4 +1,3 @@
-# pattern: Functional Core
 """Synthetic SAS fixture builders for end-to-end testing."""
 
 from dataclasses import dataclass
