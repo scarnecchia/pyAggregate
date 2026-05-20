@@ -13,6 +13,8 @@ from pyaggregate.core.input_resolution import (
     detect_sdd_collisions,
     filter_catalog,
     group_inputs_by_table,
+    select_latest_workplan_per_dp,
+    wpid_sort_key,
 )
 from pyaggregate.io.input_resolver import resolve_inputs
 
@@ -115,6 +117,147 @@ class TestFilterCatalog:
 
         expected_cols = {"dpid", "wpid", "reqtype", "verid", "msoc_path", "has_scdm", "observed_at"}
         assert set(result.columns) == expected_cols
+
+
+class TestWpidSortKey:
+    """Tests for wpid_sort_key (pure helper)."""
+
+    def test_numeric_ordering(self) -> None:
+        """wp10 sorts after wp9 numerically, not lexicographically."""
+        assert wpid_sort_key("wp009") < wpid_sort_key("wp010")
+
+    def test_strips_wp_prefix(self) -> None:
+        """Returns the integer value of the numeric portion."""
+        assert wpid_sort_key("wp041") == 41
+        assert wpid_sort_key("wp001") == 1
+
+
+class TestSelectLatestWorkplanPerDp:
+    """Tests for select_latest_workplan_per_dp (pure core function).
+
+    For each (dpid, reqtype) pair, keeps only the row with the highest wpid.
+    Catalog rows for older wpids are dropped at aggregation time, even though
+    they remain in the historical catalog.
+    """
+
+    def test_picks_highest_wpid_for_dpid_reqtype(self) -> None:
+        """Same (dpid, reqtype) across multiple wpids -> only highest wpid survives."""
+        catalog = pl.DataFrame(
+            {
+                "dpid": ["aeos", "aeos", "aeos"],
+                "wpid": ["wp041", "wp042", "wp040"],
+                "reqtype": ["qar", "qar", "qar"],
+                "verid": ["v03", "v01", "v05"],
+                "msoc_path": ["/p1", "/p2", "/p3"],
+                "has_scdm": [1, 1, 1],
+                "observed_at": ["2026-05-14T00:00:00"] * 3,
+            }
+        )
+
+        result = select_latest_workplan_per_dp(catalog)
+
+        assert len(result) == 1
+        row = result.row(0, named=True)
+        assert row["wpid"] == "wp042"
+        assert row["verid"] == "v01"
+        assert row["msoc_path"] == "/p2"
+
+    def test_sorts_wpid_numerically_not_lexicographically(self) -> None:
+        """wp010 must beat wp009 (lexicographic would order wp009 > wp010)."""
+        catalog = pl.DataFrame(
+            {
+                "dpid": ["aeos", "aeos"],
+                "wpid": ["wp009", "wp010"],
+                "reqtype": ["qar", "qar"],
+                "verid": ["v01", "v01"],
+                "msoc_path": ["/p9", "/p10"],
+                "has_scdm": [1, 1],
+                "observed_at": ["2026-05-14T00:00:00"] * 2,
+            }
+        )
+
+        result = select_latest_workplan_per_dp(catalog)
+
+        assert len(result) == 1
+        assert result.row(0, named=True)["wpid"] == "wp010"
+
+    def test_qar_and_qmr_winners_are_independent(self) -> None:
+        """Within one dpid, qar and qmr each get their own max-wpid winner."""
+        catalog = pl.DataFrame(
+            {
+                "dpid": ["aeos", "aeos", "aeos", "aeos"],
+                "wpid": ["wp041", "wp042", "wp041", "wp043"],
+                "reqtype": ["qar", "qar", "qmr", "qmr"],
+                "verid": ["v01", "v01", "v01", "v01"],
+                "msoc_path": ["/qar41", "/qar42", "/qmr41", "/qmr43"],
+                "has_scdm": [1, 1, 1, 1],
+                "observed_at": ["2026-05-14T00:00:00"] * 4,
+            }
+        )
+
+        result = select_latest_workplan_per_dp(catalog)
+
+        winners = {
+            (row["dpid"], row["reqtype"]): row["wpid"]
+            for row in result.iter_rows(named=True)
+        }
+        assert winners == {("aeos", "qar"): "wp042", ("aeos", "qmr"): "wp043"}
+
+    def test_different_dpids_do_not_compete(self) -> None:
+        """Each dpid's winner is computed independently of other dpids."""
+        catalog = pl.DataFrame(
+            {
+                "dpid": ["aeos", "aeos", "cms"],
+                "wpid": ["wp041", "wp042", "wp001"],
+                "reqtype": ["qar", "qar", "qar"],
+                "verid": ["v01", "v01", "v01"],
+                "msoc_path": ["/a41", "/a42", "/c01"],
+                "has_scdm": [1, 1, 1],
+                "observed_at": ["2026-05-14T00:00:00"] * 3,
+            }
+        )
+
+        result = select_latest_workplan_per_dp(catalog)
+
+        winners = {row["dpid"]: row["wpid"] for row in result.iter_rows(named=True)}
+        assert winners == {"aeos": "wp042", "cms": "wp001"}
+
+    def test_preserves_all_columns(self) -> None:
+        """Selection preserves every column from the input catalog."""
+        catalog = pl.DataFrame(
+            {
+                "dpid": ["aeos"],
+                "wpid": ["wp041"],
+                "reqtype": ["qar"],
+                "verid": ["v01"],
+                "msoc_path": ["/p"],
+                "has_scdm": [1],
+                "observed_at": ["2026-05-14T00:00:00"],
+            }
+        )
+
+        result = select_latest_workplan_per_dp(catalog)
+
+        assert set(result.columns) == set(catalog.columns)
+
+    def test_empty_catalog_returns_empty(self) -> None:
+        """Empty input -> empty output (same schema)."""
+        catalog = pl.DataFrame(
+            schema={
+                "dpid": pl.Utf8,
+                "wpid": pl.Utf8,
+                "reqtype": pl.Utf8,
+                "verid": pl.Utf8,
+                "msoc_path": pl.Utf8,
+                "has_scdm": pl.Int64,
+                "observed_at": pl.Utf8,
+            }
+        )
+
+        result = select_latest_workplan_per_dp(catalog)
+
+        assert len(result) == 0
+        assert set(result.columns) == set(catalog.columns)
 
 
 class TestGroupInputsByTable:

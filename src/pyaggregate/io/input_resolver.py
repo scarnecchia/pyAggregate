@@ -10,6 +10,7 @@ from pyaggregate.core.input_resolution import (
     TableInput,
     filter_catalog,
     group_inputs_by_table,
+    select_latest_workplan_per_dp,
 )
 from pyaggregate.io.sas_reader import glob_scdm_tables, glob_tables
 
@@ -43,6 +44,10 @@ def resolve_inputs(
 
     # Filter catalog to relevant rows
     filtered_catalog = filter_catalog(catalog, agg_config)
+
+    # Narrow to highest wpid per (dpid, reqtype) — only the latest workplan
+    # gets aggregated, even though older workplans remain in the catalog.
+    filtered_catalog = select_latest_workplan_per_dp(filtered_catalog)
 
     if len(filtered_catalog) == 0:
         return {}

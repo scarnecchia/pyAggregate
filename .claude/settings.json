@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(ed3d-house-style:writing-good-tests)",
+      "Skill(ed3d-house-style:writing-good-tests:*)",
+      "Bash(pytest tests/test_input_resolution.py::TestSelectLatestWorkplanPerDp -x)",
+      "Bash(where python *)",
+      "Bash(python -c \"import polars; print\\(polars.__version__\\)\")"
+    ]
+  }
+}

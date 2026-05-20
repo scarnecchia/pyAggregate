@@ -9,6 +9,22 @@ import polars as pl
 from pyaggregate.config import AggTypeConfig
 
 
+def wpid_sort_key(wpid: str) -> int:
+    """Extract numeric portion of workplan ID for sorting.
+
+    Converts wp001, wp002, wp010 to 1, 2, 10 for numeric ordering
+    (lexicographic would incorrectly order wp10 before wp2).
+
+    Args:
+        wpid: workplan ID string (e.g., wp001, wp002, wp010)
+
+    Returns:
+        Numeric sort key
+    """
+    numeric_part = wpid.removeprefix("wp")
+    return int(numeric_part)
+
+
 @dataclass(frozen=True)
 class TableInput:
     """Resolved input for a single table from a single DP."""
@@ -39,6 +55,39 @@ def filter_catalog(catalog: pl.DataFrame, agg_config: AggTypeConfig) -> pl.DataF
         return catalog.filter(pl.col(agg_config.source_field) == 1)
 
     return catalog
+
+
+def select_latest_workplan_per_dp(catalog: pl.DataFrame) -> pl.DataFrame:
+    """Narrow catalog to the highest-wpid row per (dpid, reqtype).
+
+    Catalog rows are already deduped per (dpid, wpid, reqtype) at scan time
+    (see core.paths.pick_latest_approved), so each input row represents the
+    winning verid for its wpid. This function further narrows to one row per
+    (dpid, reqtype) by keeping only the row with the numerically-highest wpid.
+
+    Older workplans remain in the historical catalog but are excluded from
+    aggregation runs.
+
+    Args:
+        catalog: DataFrame with at least 'dpid', 'wpid', and 'reqtype' columns
+
+    Returns:
+        DataFrame with one row per (dpid, reqtype) pair, preserving all columns
+    """
+    if len(catalog) == 0:
+        return catalog
+
+    return (
+        catalog.with_columns(
+            pl.col("wpid")
+            .map_elements(wpid_sort_key, return_dtype=pl.Int64)
+            .alias("_wpid_sort_key")
+        )
+        .sort("_wpid_sort_key", descending=True)
+        .group_by(["dpid", "reqtype"], maintain_order=True)
+        .first()
+        .drop("_wpid_sort_key")
+    )
 
 
 def group_inputs_by_table(
