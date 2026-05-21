@@ -57,6 +57,44 @@ def filter_catalog(catalog: pl.DataFrame, agg_config: AggTypeConfig) -> pl.DataF
     return catalog
 
 
+def filter_allowed_dpids(
+    catalog: pl.DataFrame, allowed_dpids: tuple[str, ...]
+) -> pl.DataFrame:
+    """Filter catalog rows to only allowed data partners.
+
+    Args:
+        catalog: Catalog DataFrame with a 'dpid' column
+        allowed_dpids: Tuple of lowercase DPID strings, or ("*",) for all
+
+    Returns:
+        Filtered DataFrame (unchanged if wildcard, empty if allowed_dpids is empty)
+    """
+    if "*" in allowed_dpids:
+        return catalog
+    return catalog.filter(pl.col("dpid").is_in(list(allowed_dpids)))
+
+
+def check_unknown_dpids(
+    allowed_dpids: tuple[str, ...], catalog_dpids: set[str]
+) -> list[str]:
+    """Return warning strings for allowed DPIDs not found in the catalog.
+
+    Args:
+        allowed_dpids: Tuple of lowercase DPID strings, or ("*",) for all
+        catalog_dpids: Set of DPIDs present in the catalog
+
+    Returns:
+        List of warning message strings (empty if wildcard or all found)
+    """
+    if "*" in allowed_dpids:
+        return []
+    unknown = sorted(set(allowed_dpids) - catalog_dpids)
+    return [
+        f"allowed_dpids contains '{dpid}' which was not found in the catalog"
+        for dpid in unknown
+    ]
+
+
 def select_latest_workplan_per_dp(catalog: pl.DataFrame) -> pl.DataFrame:
     """Narrow catalog to the highest-wpid row per (dpid, reqtype).
 
