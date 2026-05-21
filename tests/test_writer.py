@@ -64,11 +64,10 @@ def dpid_map() -> pl.DataFrame:
 
 def test_write_run_creates_directory_structure(tmp_path, table_outputs, dpid_map):
     """Test that write_run creates correct directory structure."""
-    output_root = tmp_path / "outputs"
+    output_path = tmp_path / "outputs" / "qa"
 
     write_run(
-        output_root=output_root,
-        agg_type="qa",
+        output_path=output_path,
         run_id="2026-05-14",
         table_outputs=table_outputs,
         dpid_map_frame=dpid_map,
@@ -76,18 +75,17 @@ def test_write_run_creates_directory_structure(tmp_path, table_outputs, dpid_map
     )
 
     # Check directory structure exists
-    assert (output_root / "qa" / "2026-05-14" / "stacked").exists()
-    assert (output_root / "qa" / "2026-05-14" / "masked").exists()
-    assert (output_root / "qa" / "2026-05-14" / "rollup").exists()
+    assert (output_path / "2026-05-14" / "stacked").exists()
+    assert (output_path / "2026-05-14" / "masked").exists()
+    assert (output_path / "2026-05-14" / "rollup").exists()
 
 
 def test_write_run_no_tmp_files_survive(tmp_path, table_outputs, dpid_map):
     """Test AC3.6: After write, no .tmp files exist."""
-    output_root = tmp_path / "outputs"
+    output_path = tmp_path / "outputs" / "qa"
 
     write_run(
-        output_root=output_root,
-        agg_type="qa",
+        output_path=output_path,
         run_id="2026-05-14",
         table_outputs=table_outputs,
         dpid_map_frame=dpid_map,
@@ -95,17 +93,16 @@ def test_write_run_no_tmp_files_survive(tmp_path, table_outputs, dpid_map):
     )
 
     # Verify no .tmp files exist
-    tmp_files = list(output_root.rglob("*.tmp"))
+    tmp_files = list(output_path.rglob("*.tmp"))
     assert len(tmp_files) == 0, f"Found .tmp files: {tmp_files}"
 
 
 def test_write_run_parquet_files_created(tmp_path, table_outputs, dpid_map):
     """Test that parquet files are created with correct names."""
-    output_root = tmp_path / "outputs"
+    output_path = tmp_path / "outputs" / "qa"
 
     write_run(
-        output_root=output_root,
-        agg_type="qa",
+        output_path=output_path,
         run_id="2026-05-14",
         table_outputs=table_outputs,
         dpid_map_frame=dpid_map,
@@ -113,21 +110,20 @@ def test_write_run_parquet_files_created(tmp_path, table_outputs, dpid_map):
     )
 
     # Check parquet files exist
-    assert (output_root / "qa" / "2026-05-14" / "stacked" / "ae.parquet").exists()
-    assert (output_root / "qa" / "2026-05-14" / "masked" / "ae.parquet").exists()
-    assert (output_root / "qa" / "2026-05-14" / "rollup" / "ae.parquet").exists()
+    assert (output_path / "2026-05-14" / "stacked" / "ae.parquet").exists()
+    assert (output_path / "2026-05-14" / "masked" / "ae.parquet").exists()
+    assert (output_path / "2026-05-14" / "rollup" / "ae.parquet").exists()
 
-    assert (output_root / "qa" / "2026-05-14" / "stacked" / "ae_stats.parquet").exists()
-    assert (output_root / "qa" / "2026-05-14" / "masked" / "ae_stats.parquet").exists()
+    assert (output_path / "2026-05-14" / "stacked" / "ae_stats.parquet").exists()
+    assert (output_path / "2026-05-14" / "masked" / "ae_stats.parquet").exists()
 
 
 def test_write_run_stats_excluded_no_rollup(tmp_path, table_outputs, dpid_map):
     """Test AC5.3: Stats-excluded table has no rollup dir."""
-    output_root = tmp_path / "outputs"
+    output_path = tmp_path / "outputs" / "qa"
 
     write_run(
-        output_root=output_root,
-        agg_type="qa",
+        output_path=output_path,
         run_id="2026-05-14",
         table_outputs=table_outputs,
         dpid_map_frame=dpid_map,
@@ -135,16 +131,15 @@ def test_write_run_stats_excluded_no_rollup(tmp_path, table_outputs, dpid_map):
     )
 
     # ae_stats should not have rollup file
-    assert not (output_root / "qa" / "2026-05-14" / "rollup" / "ae_stats.parquet").exists()
+    assert not (output_path / "2026-05-14" / "rollup" / "ae_stats.parquet").exists()
 
 
 def test_write_run_dpid_map_filtered(tmp_path, table_outputs, dpid_map):
     """Test AC5.3: dpid_map.csv only contains surrogates in masked outputs."""
-    output_root = tmp_path / "outputs"
+    output_path = tmp_path / "outputs" / "qa"
 
     write_run(
-        output_root=output_root,
-        agg_type="qa",
+        output_path=output_path,
         run_id="2026-05-14",
         table_outputs=table_outputs,
         dpid_map_frame=dpid_map,
@@ -152,7 +147,7 @@ def test_write_run_dpid_map_filtered(tmp_path, table_outputs, dpid_map):
     )
 
     # Read dpid_map.csv
-    dpid_map_path = output_root / "qa" / "2026-05-14" / "dpid_map.csv"
+    dpid_map_path = output_path / "2026-05-14" / "dpid_map.csv"
     assert dpid_map_path.exists()
 
     written_map = pl.read_csv(dpid_map_path)
@@ -167,18 +162,17 @@ def test_write_run_dpid_map_filtered(tmp_path, table_outputs, dpid_map):
 
 def test_write_run_latest_symlink_created(tmp_path, table_outputs, dpid_map):
     """Test AC8.1: latest symlink resolves to run_id directory."""
-    output_root = tmp_path / "outputs"
+    output_path = tmp_path / "outputs" / "qa"
 
     write_run(
-        output_root=output_root,
-        agg_type="qa",
+        output_path=output_path,
         run_id="2026-05-14",
         table_outputs=table_outputs,
         dpid_map_frame=dpid_map,
         update_latest=True,
     )
 
-    latest_link = output_root / "qa" / "latest"
+    latest_link = output_path / "latest"
     assert latest_link.is_symlink()
 
     # Read where symlink points to
@@ -191,42 +185,39 @@ def test_write_run_latest_symlink_created(tmp_path, table_outputs, dpid_map):
 
 def test_write_run_no_symlink_when_update_false(tmp_path, table_outputs, dpid_map):
     """Test AC4.3: update_latest=False skips symlink creation."""
-    output_root = tmp_path / "outputs"
+    output_path = tmp_path / "outputs" / "qa"
 
     write_run(
-        output_root=output_root,
-        agg_type="qa",
+        output_path=output_path,
         run_id="2026-05-14",
         table_outputs=table_outputs,
         dpid_map_frame=dpid_map,
         update_latest=False,
     )
 
-    latest_link = output_root / "qa" / "latest"
+    latest_link = output_path / "latest"
     assert not latest_link.exists()
 
 
 def test_write_run_atomic_symlink_update(tmp_path, table_outputs, dpid_map):
     """Test AC8.2: Symlink update is atomic—never broken during swap."""
-    output_root = tmp_path / "outputs"
+    output_path = tmp_path / "outputs" / "qa"
 
     # First run with update_latest=True
     write_run(
-        output_root=output_root,
-        agg_type="qa",
+        output_path=output_path,
         run_id="2026-05-13",
         table_outputs=table_outputs,
         dpid_map_frame=dpid_map,
         update_latest=True,
     )
 
-    latest_link = output_root / "qa" / "latest"
+    latest_link = output_path / "latest"
     assert latest_link.readlink() == Path("2026-05-13")
 
     # Second run, update symlink
     write_run(
-        output_root=output_root,
-        agg_type="qa",
+        output_path=output_path,
         run_id="2026-05-14",
         table_outputs=table_outputs,
         dpid_map_frame=dpid_map,
@@ -242,25 +233,23 @@ def test_write_run_atomic_symlink_update(tmp_path, table_outputs, dpid_map):
 
 def test_write_run_summary_json(tmp_path, table_outputs, dpid_map):
     """Test that run_summary.json is created with correct structure."""
-    output_root = tmp_path / "outputs"
+    output_path = tmp_path / "outputs" / "qa"
 
     write_run(
-        output_root=output_root,
-        agg_type="qa",
+        output_path=output_path,
         run_id="2026-05-14",
         table_outputs=table_outputs,
         dpid_map_frame=dpid_map,
         update_latest=False,
     )
 
-    summary_path = output_root / "qa" / "2026-05-14" / "run_summary.json"
+    summary_path = output_path / "2026-05-14" / "run_summary.json"
     assert summary_path.exists()
 
     with open(summary_path) as f:
         summary = json.load(f)
 
     assert summary["run_id"] == "2026-05-14"
-    assert summary["agg_type"] == "qa"
     assert "started_at" in summary
     assert "ended_at" in summary
     assert "tables_succeeded" in summary
@@ -271,7 +260,7 @@ def test_write_run_summary_json(tmp_path, table_outputs, dpid_map):
 
 def test_write_run_summary_json_with_skipped_tables(tmp_path, table_outputs, dpid_map):
     """Test that run_summary.json includes tables_skipped from CLI failures."""
-    output_root = tmp_path / "outputs"
+    output_path = tmp_path / "outputs" / "qa"
 
     tables_skipped = [
         {
@@ -282,8 +271,7 @@ def test_write_run_summary_json_with_skipped_tables(tmp_path, table_outputs, dpi
     ]
 
     write_run(
-        output_root=output_root,
-        agg_type="qa",
+        output_path=output_path,
         run_id="2026-05-14",
         table_outputs=table_outputs,
         dpid_map_frame=dpid_map,
@@ -291,7 +279,7 @@ def test_write_run_summary_json_with_skipped_tables(tmp_path, table_outputs, dpi
         tables_skipped=tables_skipped,
     )
 
-    summary_path = output_root / "qa" / "2026-05-14" / "run_summary.json"
+    summary_path = output_path / "2026-05-14" / "run_summary.json"
     assert summary_path.exists()
 
     with open(summary_path) as f:
@@ -306,31 +294,30 @@ def test_write_run_summary_json_with_skipped_tables(tmp_path, table_outputs, dpi
 
 def test_check_run_exists_returns_true(tmp_path, table_outputs, dpid_map):
     """Test that check_run_exists returns True for existing run."""
-    output_root = tmp_path / "outputs"
+    output_path = tmp_path / "outputs" / "qa"
 
     write_run(
-        output_root=output_root,
-        agg_type="qa",
+        output_path=output_path,
         run_id="2026-05-14",
         table_outputs=table_outputs,
         dpid_map_frame=dpid_map,
         update_latest=False,
     )
 
-    assert check_run_exists(output_root, "qa", "2026-05-14") is True
+    assert check_run_exists(output_path, "2026-05-14") is True
 
 
 def test_check_run_exists_returns_false(tmp_path):
     """Test that check_run_exists returns False for non-existent run."""
-    output_root = tmp_path / "outputs"
+    output_path = tmp_path / "outputs" / "qa"
 
-    assert check_run_exists(output_root, "qa", "2026-05-14") is False
+    assert check_run_exists(output_path, "2026-05-14") is False
 
 
 def test_write_run_cleans_orphaned_tmp_files(tmp_path, table_outputs, dpid_map):
     """Test that orphaned .tmp files from previous runs are cleaned up."""
-    output_root = tmp_path / "outputs"
-    run_dir = output_root / "qa" / "2026-05-14"
+    output_path = tmp_path / "outputs" / "qa"
+    run_dir = output_path / "2026-05-14"
 
     # Create orphaned tmp file
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -342,8 +329,7 @@ def test_write_run_cleans_orphaned_tmp_files(tmp_path, table_outputs, dpid_map):
 
     # Write run
     write_run(
-        output_root=output_root,
-        agg_type="qa",
+        output_path=output_path,
         run_id="2026-05-14",
         table_outputs=table_outputs,
         dpid_map_frame=dpid_map,
@@ -364,7 +350,7 @@ def test_write_run_empty_masked_surrogates(tmp_path, dpid_map):
     This tests the fix for the critical issue where pl.DataFrame(columns=...)
     would crash.
     """
-    output_root = tmp_path / "outputs"
+    output_path = tmp_path / "outputs" / "qa"
 
     # Create table_outputs with empty/no masked dataframes
     table_outputs = {
@@ -381,8 +367,7 @@ def test_write_run_empty_masked_surrogates(tmp_path, dpid_map):
 
     # Should not raise an exception
     write_run(
-        output_root=output_root,
-        agg_type="qa",
+        output_path=output_path,
         run_id="2026-05-14",
         table_outputs=table_outputs,
         dpid_map_frame=dpid_map,
@@ -390,7 +375,7 @@ def test_write_run_empty_masked_surrogates(tmp_path, dpid_map):
     )
 
     # dpid_map.csv should exist and be empty (schema preserved)
-    dpid_map_path = output_root / "qa" / "2026-05-14" / "dpid_map.csv"
+    dpid_map_path = output_path / "2026-05-14" / "dpid_map.csv"
     assert dpid_map_path.exists()
 
     written_map = pl.read_csv(dpid_map_path)

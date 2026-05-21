@@ -73,7 +73,7 @@ class TestAggregateTableBasic:
         result = aggregate_table(
             table_inputs,
             dpid_map_fixture,
-            AggTypeConfig(name="qa", source_reqtype="qar"),
+            AggTypeConfig(name="qa", output_path=Path("/tmp"), source_reqtype="qar"),
             "patient",
             fake_reader,
         )
@@ -92,7 +92,7 @@ class TestAggregateTableBasic:
         result = aggregate_table(
             table_inputs,
             dpid_map_fixture,
-            AggTypeConfig(name="qa", source_reqtype="qar"),
+            AggTypeConfig(name="qa", output_path=Path("/tmp"), source_reqtype="qar"),
             "patient",
             fake_reader,
         )
@@ -114,7 +114,7 @@ class TestAggregateTableBasic:
         result = aggregate_table(
             table_inputs,
             dpid_map_fixture,
-            AggTypeConfig(name="qa", source_reqtype="qar"),
+            AggTypeConfig(name="qa", output_path=Path("/tmp"), source_reqtype="qar"),
             "patient",
             fake_reader,
         )
@@ -131,7 +131,7 @@ class TestAggregateTableBasic:
         result = aggregate_table(
             table_inputs,
             dpid_map_fixture,
-            AggTypeConfig(name="qa", source_reqtype="qar"),
+            AggTypeConfig(name="qa", output_path=Path("/tmp"), source_reqtype="qar"),
             "patient",
             fake_reader,
         )
@@ -147,7 +147,7 @@ class TestAggregateTableBasic:
         result = aggregate_table(
             table_inputs,
             dpid_map_fixture,
-            AggTypeConfig(name="qa", source_reqtype="qar"),
+            AggTypeConfig(name="qa", output_path=Path("/tmp"), source_reqtype="qar"),
             "patient",
             fake_reader,
         )
@@ -167,7 +167,7 @@ class TestAggregateTableBasic:
         result = aggregate_table(
             table_inputs,
             dpid_map_fixture,
-            AggTypeConfig(name="qa", source_reqtype="qar"),
+            AggTypeConfig(name="qa", output_path=Path("/tmp"), source_reqtype="qar"),
             "patient",
             fake_reader,
         )
@@ -189,7 +189,7 @@ class TestAggregateTableBasic:
         result = aggregate_table(
             table_inputs,
             dpid_map_fixture,
-            AggTypeConfig(name="qa", source_reqtype="qar"),
+            AggTypeConfig(name="qa", output_path=Path("/tmp"), source_reqtype="qar"),
             "patient",
             fake_reader,
         )
@@ -235,7 +235,7 @@ class TestAggregateTableSchemaDrift:
         result = aggregate_table(
             table_inputs,
             dpid_map_fixture,
-            AggTypeConfig(name="qa", source_reqtype="qar"),
+            AggTypeConfig(name="qa", output_path=Path("/tmp"), source_reqtype="qar"),
             "patient",
             fake_reader_drift,
         )

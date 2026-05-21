@@ -328,7 +328,7 @@ class TestAggregateTableWithRollup:
         result = aggregate_table(
             table_inputs,
             dpid_map,
-            AggTypeConfig(name="qa", source_reqtype="qar"),
+            AggTypeConfig(name="qa", output_path=Path("/tmp"), source_reqtype="qar"),
             "patient",
             self.fake_reader,
         )
@@ -347,7 +347,7 @@ class TestAggregateTableWithRollup:
         result = aggregate_table(
             table_inputs,
             dpid_map,
-            AggTypeConfig(name="qa", source_reqtype="qar"),
+            AggTypeConfig(name="qa", output_path=Path("/tmp"), source_reqtype="qar"),
             "patient",
             self.fake_reader,
         )
@@ -369,7 +369,7 @@ class TestAggregateTableWithRollup:
         result = aggregate_table(
             table_inputs,
             dpid_map,
-            AggTypeConfig(name="qa", source_reqtype="qar"),
+            AggTypeConfig(name="qa", output_path=Path("/tmp"), source_reqtype="qar"),
             "patient",
             self.fake_reader,
         )
@@ -391,6 +391,7 @@ class TestAggregateTableWithRollup:
         )
         agg_config = AggTypeConfig(
             name="qa",
+            output_path=Path("/tmp"),
             source_reqtype="qar",
             table_overrides=table_overrides,
         )
@@ -423,6 +424,7 @@ class TestAggregateTableWithRollup:
         )
         agg_config = AggTypeConfig(
             name="qa",
+            output_path=Path("/tmp"),
             source_reqtype="qar",
             table_overrides=table_overrides,
         )

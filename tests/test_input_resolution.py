@@ -64,6 +64,7 @@ class TestFilterCatalog:
         catalog = catalog_fixture.catalog()
         agg_config = AggTypeConfig(
             name="qa",
+            output_path=Path("/tmp"),
             source_reqtype="qar",
         )
 
@@ -80,6 +81,7 @@ class TestFilterCatalog:
         catalog = catalog_fixture.catalog()
         agg_config = AggTypeConfig(
             name="qm",
+            output_path=Path("/tmp"),
             source_reqtype="qmr",
         )
 
@@ -96,6 +98,7 @@ class TestFilterCatalog:
         catalog = catalog_fixture.catalog()
         agg_config = AggTypeConfig(
             name="sdd",
+            output_path=Path("/tmp"),
             source_field="has_scdm",
         )
 
@@ -110,6 +113,7 @@ class TestFilterCatalog:
         catalog = catalog_fixture.catalog()
         agg_config = AggTypeConfig(
             name="qa",
+            output_path=Path("/tmp"),
             source_reqtype="qar",
         )
 
@@ -390,6 +394,7 @@ class TestResolveInputs:
 
         agg_config = AggTypeConfig(
             name="qa",
+            output_path=Path("/tmp"),
             source_reqtype="qar",
         )
 
@@ -425,6 +430,7 @@ class TestResolveInputs:
 
         agg_config = AggTypeConfig(
             name="sdd",
+            output_path=Path("/tmp"),
             source_field="has_scdm",
             subdirectory="scdm_snapshot",
         )
@@ -455,6 +461,7 @@ class TestResolveInputs:
 
         agg_config = AggTypeConfig(
             name="qa",
+            output_path=Path("/tmp"),
             source_reqtype="qar",
         )
 
@@ -482,6 +489,7 @@ class TestResolveInputs:
 
         agg_config = AggTypeConfig(
             name="qa",
+            output_path=Path("/tmp"),
             source_reqtype="qar",  # No qar rows in catalog
         )
 

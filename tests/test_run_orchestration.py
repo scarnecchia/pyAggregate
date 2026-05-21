@@ -329,7 +329,7 @@ class TestRunOrchestration:
             ],
         )
         assert result2.exit_code == 1
-        assert "already exists" in result2.stdout
+        assert "already exists" in result2.output
 
     def test_run_existing_run_with_force_succeeds(
         self,
@@ -570,10 +570,10 @@ class TestRunOrchestration:
             summary = json.load(f)
 
         assert summary["run_id"] == today
-        assert summary["agg_type"] == "qa"
         assert "started_at" in summary
         assert "ended_at" in summary
         assert "tables_succeeded" in summary
+        assert "tables_skipped" in summary
         assert "exit_code" in summary
 
     def test_run_with_alternate_catalog_ac4_1(

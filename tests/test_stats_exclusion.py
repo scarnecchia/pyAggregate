@@ -73,6 +73,7 @@ class TestAggregateTableExcludeRollup:
         """Table matching exclusion pattern does not have rollup output."""
         agg_config = AggTypeConfig(
             name="qa",
+            output_path=Path("/tmp"),
             source_reqtype="qar",
             exclude_from_rollup=("*_stats",),
         )
@@ -96,6 +97,7 @@ class TestAggregateTableExcludeRollup:
         """Table not matching exclusion pattern has rollup output."""
         agg_config = AggTypeConfig(
             name="qa",
+            output_path=Path("/tmp"),
             source_reqtype="qar",
             exclude_from_rollup=("*_stats",),
         )
@@ -119,6 +121,7 @@ class TestAggregateTableExcludeRollup:
         """With empty exclusion list, all tables get rollup."""
         agg_config = AggTypeConfig(
             name="qa",
+            output_path=Path("/tmp"),
             source_reqtype="qar",
             exclude_from_rollup=(),
         )
@@ -140,6 +143,7 @@ class TestAggregateTableExcludeRollup:
         """Multiple patterns all work for exclusion."""
         agg_config = AggTypeConfig(
             name="qa",
+            output_path=Path("/tmp"),
             source_reqtype="qar",
             exclude_from_rollup=("*_stats", "lab_*"),
         )

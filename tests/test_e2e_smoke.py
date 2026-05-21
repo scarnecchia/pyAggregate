@@ -106,18 +106,18 @@ requests_root = "{requests_root}"
 catalog_db = "{state_dir / "catalog.db"}"
 log_dir = "{state_dir / "logs"}"
 
-[output]
-output_root = "{output_dir}"
-
 [agg.qa]
+output_path = "{output_dir / "qa"}"
 source_reqtype = "qar"
 exclude_from_rollup = []
 
 [agg.qm]
+output_path = "{output_dir / "qm"}"
 source_reqtype = "qmr"
 exclude_from_rollup = []
 
 [agg.sdd]
+output_path = "{output_dir / "sdd"}"
 source_field = "has_scdm"
 subdirectory = "scdm_snapshot"
 exclude_from_rollup = []
@@ -190,18 +190,18 @@ requests_root = "{requests_root}"
 catalog_db = "{state_dir / "catalog.db"}"
 log_dir = "{state_dir / "logs"}"
 
-[output]
-output_root = "{output_dir}"
-
 [agg.qa]
+output_path = "{output_dir / "qa"}"
 source_reqtype = "qar"
 exclude_from_rollup = []
 
 [agg.qm]
+output_path = "{output_dir / "qm"}"
 source_reqtype = "qmr"
 exclude_from_rollup = []
 
 [agg.sdd]
+output_path = "{output_dir / "sdd"}"
 source_field = "has_scdm"
 subdirectory = "scdm_snapshot"
 exclude_from_rollup = []
