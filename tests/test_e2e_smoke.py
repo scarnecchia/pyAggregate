@@ -54,7 +54,7 @@ class TestE2ESmokeTest:
         """AC9.1: Full pipeline init-db -> scan -> run produces consistent outputs.
 
         Tests:
-        - All expected output files exist for qa, qm, sdd
+        - All expected output files exist for qa, qm, snapshot
         - Row counts are internally consistent
         - dpid_map.csv exists and matches surrogates in masked outputs
         - No .tmp files survive
@@ -116,8 +116,8 @@ output_path = "{output_dir / "qm"}"
 source_reqtype = "qmr"
 exclude_from_rollup = []
 
-[agg.sdd]
-output_path = "{output_dir / "sdd"}"
+[agg.snapshot]
+output_path = "{output_dir / "snapshot"}"
 source_field = "has_scdm"
 subdirectory = "scdm_snapshot"
 exclude_from_rollup = []
@@ -264,7 +264,7 @@ def _verify_output_files_exist(output_dir: Path, run_id: str = "latest") -> None
         output_dir: Root output directory
         run_id: Run identifier (defaults to latest)
     """
-    for agg_type in ["qa", "qm", "sdd"]:
+    for agg_type in ["qa", "qm", "snapshot"]:
         agg_dir = output_dir / agg_type
 
         # Skip agg types that weren't run (no directories)
@@ -310,7 +310,7 @@ def _verify_row_count_consistency(output_dir: Path, run_id: str = "latest") -> N
         output_dir: Root output directory
         run_id: Run identifier (defaults to latest)
     """
-    for agg_type in ["qa", "qm", "sdd"]:
+    for agg_type in ["qa", "qm", "snapshot"]:
         agg_dir = output_dir / agg_type
 
         # Skip agg types that weren't run
@@ -369,7 +369,7 @@ def _verify_dpid_map_valid(output_dir: Path, run_id: str = "latest") -> None:
         output_dir: Root output directory
         run_id: Run identifier (defaults to latest)
     """
-    for agg_type in ["qa", "qm", "sdd"]:
+    for agg_type in ["qa", "qm", "snapshot"]:
         agg_dir = output_dir / agg_type
 
         # Skip agg types that weren't run
@@ -411,7 +411,7 @@ def _verify_latest_symlinks(output_dir: Path) -> None:
     Args:
         output_dir: Root output directory
     """
-    for agg_type in ["qa", "qm", "sdd"]:
+    for agg_type in ["qa", "qm", "snapshot"]:
         agg_dir = output_dir / agg_type
 
         # Skip if agg type wasn't run
@@ -439,7 +439,7 @@ def _capture_output_row_counts(output_dir: Path, run_id: str) -> dict[str, Any]:
     """
     counts: dict[str, Any] = {}
 
-    for agg_type in ["qa", "qm", "sdd"]:
+    for agg_type in ["qa", "qm", "snapshot"]:
         agg_dir = output_dir / agg_type
         if not agg_dir.exists():
             continue

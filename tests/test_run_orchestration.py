@@ -66,7 +66,7 @@ def test_config(tmp_path: Path) -> tuple[Path, AppConfig]:
         agg_types={
             "qa": AggTypeConfig(name="qa", output_path=output_root / "qa", source_reqtype="qar", exclude_from_rollup=("*_stats",)),
             "qm": AggTypeConfig(name="qm", output_path=output_root / "qm", source_reqtype="qmr", exclude_from_rollup=("*_stats",)),
-            "sdd": AggTypeConfig(name="sdd", output_path=output_root / "sdd", source_field="has_scdm", subdirectory="scdm_snapshot", exclude_from_rollup=()),
+            "snapshot": AggTypeConfig(name="snapshot", output_path=output_root / "snapshot", source_field="has_scdm", subdirectory="scdm_snapshot", exclude_from_rollup=()),
         },
     )
 
@@ -90,12 +90,12 @@ source_reqtype = "qmr"
 output_path = "{}"
 exclude_from_rollup = ["*_stats"]
 
-[agg.sdd]
+[agg.snapshot]
 source_field = "has_scdm"
 subdirectory = "scdm_snapshot"
 output_path = "{}"
 exclude_from_rollup = []
-""".format(catalog_db, tmp_path / "logs", output_root / "qa", output_root / "qm", output_root / "sdd")
+""".format(catalog_db, tmp_path / "logs", output_root / "qa", output_root / "qm", output_root / "snapshot")
     )
 
     return config_file, config
@@ -172,7 +172,7 @@ def mock_patches():
         patch("pyaggregate.io.sas_reader.read_table") as mock_read,
         patch("pyaggregate.core.pipeline.aggregate_table") as mock_agg,
         patch("pyaggregate.io.input_resolver.glob_tables") as mock_glob_qa_input,
-        patch("pyaggregate.io.input_resolver.glob_scdm_tables") as mock_glob_sdd_input,
+        patch("pyaggregate.io.input_resolver.glob_scdm_tables") as mock_glob_scdm,
     ):
         mock_read.return_value = pl.DataFrame({"col": [1]})
 
@@ -182,12 +182,12 @@ def mock_patches():
 
         mock_agg.side_effect = mock_agg_impl
         mock_glob_qa_input.return_value = ["ae", "ae_stats"]
-        mock_glob_sdd_input.return_value = ["ae", "ae_stats"]
+        mock_glob_scdm.return_value = ["ae", "ae_stats"]
         patches_dict = {
             "read": mock_read,
             "agg": mock_agg,
             "glob_qa": mock_glob_qa_input,
-            "glob_sdd": mock_glob_sdd_input,
+            "glob_scdm": mock_glob_scdm,
         }
         yield patches_dict
 
@@ -195,13 +195,13 @@ def mock_patches():
 class TestRunOrchestration:
     """Tests for run command orchestration."""
 
-    def test_run_with_type_filter_qa_sdd_only(
+    def test_run_with_type_filter_qa_snapshot_only(
         self,
         cli_runner: CliRunner,
         test_config: tuple[Path, AppConfig],
         mock_patches,
     ) -> None:
-        """AC3.7: --type qa --type sdd produces only qa and sdd outputs, no qm directory."""
+        """AC3.7: --type qa --type snapshot produces only qa and snapshot outputs, no qm directory."""
         config_file, config = test_config
 
         result = cli_runner.invoke(
@@ -211,7 +211,7 @@ class TestRunOrchestration:
                 "--type",
                 "qa",
                 "--type",
-                "sdd",
+                "snapshot",
                 "--config",
                 str(config_file),
             ],
@@ -223,9 +223,9 @@ class TestRunOrchestration:
         qa_output = config.agg_types["qa"].output_path / date.today().isoformat()
         assert (qa_output / "stacked").exists()
 
-        # Verify sdd output exists
-        sdd_output = config.agg_types["sdd"].output_path / date.today().isoformat()
-        assert (sdd_output / "stacked").exists()
+        # Verify snapshot output exists
+        snapshot_output = config.agg_types["snapshot"].output_path / date.today().isoformat()
+        assert (snapshot_output / "stacked").exists()
 
         # Verify qm output does NOT exist
         qm_output = config.agg_types["qm"].output_path
@@ -428,7 +428,7 @@ class TestRunOrchestration:
         today = date.today().isoformat()
 
         # Verify all three agg types have output
-        for agg_type in ["qa", "qm", "sdd"]:
+        for agg_type in ["qa", "qm", "snapshot"]:
             run_dir = config.agg_types[agg_type].output_path / today
             assert run_dir.exists(), f"{agg_type} output not found"
             assert (run_dir / "stacked").exists()

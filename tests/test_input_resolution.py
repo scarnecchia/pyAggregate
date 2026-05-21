@@ -10,7 +10,7 @@ import pytest
 from pyaggregate.config import AggTypeConfig
 from pyaggregate.core.input_resolution import (
     TableInput,
-    detect_sdd_collisions,
+    detect_snapshot_collisions,
     filter_catalog,
     group_inputs_by_table,
     select_latest_workplan_per_dp,
@@ -91,13 +91,13 @@ class TestFilterCatalog:
         assert reqtypes == ["qmr"]
         assert len(result) == 1  # aeos qmr
 
-    def test_filter_catalog_sdd_config_filters_has_scdm(
+    def test_filter_catalog_snapshot_config_filters_has_scdm(
         self, catalog_fixture: CatalogFixture
     ) -> None:
-        """SDD config filters to source_field='has_scdm' == 1."""
+        """Snapshot config filters to source_field='has_scdm' == 1."""
         catalog = catalog_fixture.catalog()
         agg_config = AggTypeConfig(
-            name="sdd",
+            name="snapshot",
             output_path=Path("/tmp"),
             source_field="has_scdm",
         )
@@ -318,8 +318,8 @@ class TestGroupInputsByTable:
             table_input.dpid = "cms"  # type: ignore
 
 
-class TestDetectSddCollisions:
-    """Tests for detect_sdd_collisions (pure core function)."""
+class TestDetectSnapshotCollisions:
+    """Tests for detect_snapshot_collisions (pure core function)."""
 
     def test_detect_collisions_same_filename_different_reqtype(self) -> None:
         """Detects same filename from both qar and qmr for same (dpid, wpid)."""
@@ -330,7 +330,7 @@ class TestDetectSddCollisions:
             ],
         }
 
-        warnings = detect_sdd_collisions(inputs)
+        warnings = detect_snapshot_collisions(inputs)
 
         assert len(warnings) > 0
         assert any("collision" in w.lower() for w in warnings)
@@ -345,7 +345,7 @@ class TestDetectSddCollisions:
             ],
         }
 
-        warnings = detect_sdd_collisions(inputs)
+        warnings = detect_snapshot_collisions(inputs)
 
         assert len(warnings) == 0
 
@@ -358,13 +358,13 @@ class TestDetectSddCollisions:
             ],
         }
 
-        warnings = detect_sdd_collisions(inputs)
+        warnings = detect_snapshot_collisions(inputs)
 
         assert len(warnings) == 0
 
     def test_detect_collisions_empty_inputs(self) -> None:
         """Returns empty list for empty inputs."""
-        warnings = detect_sdd_collisions({})
+        warnings = detect_snapshot_collisions({})
         assert warnings == []
 
 
@@ -409,8 +409,8 @@ class TestResolveInputs:
         assert len(result["patient"]) == 1
         assert result["patient"][0].dpid == "aeos"
 
-    def test_resolve_inputs_sdd_with_subdirectory(self, tmp_path: Path) -> None:
-        """resolve_inputs uses subdirectory config field for SDD."""
+    def test_resolve_inputs_snapshot_with_subdirectory(self, tmp_path: Path) -> None:
+        """resolve_inputs uses subdirectory config field for snapshot."""
         msoc_path = tmp_path / "aeos" / "qar" / "msoc"
         scdm_dir = msoc_path / "scdm_snapshot"
         scdm_dir.mkdir(parents=True)
@@ -429,7 +429,7 @@ class TestResolveInputs:
         )
 
         agg_config = AggTypeConfig(
-            name="sdd",
+            name="snapshot",
             output_path=Path("/tmp"),
             source_field="has_scdm",
             subdirectory="scdm_snapshot",

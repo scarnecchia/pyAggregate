@@ -39,10 +39,10 @@ source_reqtype = "qmr"
 output_path = "/data/outputs/qm"
 exclude_from_rollup = ["*_stats"]
 
-[agg.sdd]
+[agg.snapshot]
 source_field = "has_scdm"
 subdirectory = "scdm_snapshot"
-output_path = "/data/outputs/sdd"
+output_path = "/data/outputs/snapshot"
 exclude_from_rollup = []
 """)
 
@@ -64,7 +64,7 @@ exclude_from_rollup = []
         # Verify agg types
         assert "qa" in config.agg_types
         assert "qm" in config.agg_types
-        assert "sdd" in config.agg_types
+        assert "snapshot" in config.agg_types
 
         # Verify qa config
         qa_config = config.agg_types["qa"]
@@ -73,12 +73,12 @@ exclude_from_rollup = []
         assert qa_config.output_path == Path("/data/outputs/qa")
         assert qa_config.exclude_from_rollup == ("*_stats",)
 
-        # Verify sdd config
-        sdd_config = config.agg_types["sdd"]
-        assert sdd_config.name == "sdd"
-        assert sdd_config.source_field == "has_scdm"
-        assert sdd_config.subdirectory == "scdm_snapshot"
-        assert sdd_config.output_path == Path("/data/outputs/sdd")
+        # Verify snapshot config
+        snapshot_config = config.agg_types["snapshot"]
+        assert snapshot_config.name == "snapshot"
+        assert snapshot_config.source_field == "has_scdm"
+        assert snapshot_config.subdirectory == "scdm_snapshot"
+        assert snapshot_config.output_path == Path("/data/outputs/snapshot")
 
     def test_missing_scan_section(self, tmp_path: Path) -> None:
         """Raise ValueError when [scan] section is missing."""
