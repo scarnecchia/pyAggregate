@@ -1,6 +1,7 @@
 """Integration tests for the run orchestration pipeline."""
 
 import json
+import logging
 from datetime import date
 from pathlib import Path
 from unittest.mock import patch
@@ -899,6 +900,109 @@ exclude_from_rollup = []
         assert (
             "snapshot" in output_text or "agg" in output_text
         ), f"Error message should mention configured aggregation types. Got: {result.output}"
+
+    def test_run_logs_unknown_dpid_warning_ac4_2(
+        self,
+        cli_runner: CliRunner,
+        tmp_path: Path,
+        mock_patches,
+        caplog,
+    ) -> None:
+        """AC4.2: CLI logs warnings for unknown DPIDs via structured logger.
+
+        Verifies that when allowed_dpids contains a DPID not in the catalog:
+        1. A warning is logged via pyaggregate.run.inputs logger
+        2. The log record's extra dict contains run_id and agg_type
+        """
+        catalog_db = tmp_path / "catalog.db"
+        output_root = tmp_path / "outputs"
+
+        # Initialize catalog with only aeos and cms DPs
+        with CatalogStore(catalog_db) as store:
+            store.init_schema()
+            store.upsert_catalog_row(
+                dpid="aeos",
+                wpid="wp041",
+                reqtype="qar",
+                verid="v01",
+                msoc_path="/data/aeos/qar",
+                has_scdm=1,
+            )
+            store.upsert_catalog_row(
+                dpid="cms",
+                wpid="wp041",
+                reqtype="qar",
+                verid="v01",
+                msoc_path="/data/cms/qar",
+                has_scdm=0,
+            )
+            store.get_or_create_surrogate("aeos")
+            store.get_or_create_surrogate("cms")
+
+        # Create config with allowed_dpids containing unknown DPs
+        config_file = tmp_path / "config.toml"
+        config_file.write_text(
+            """
+[scan]
+requests_root = "/data/requests"
+
+[state]
+catalog_db = "{}"
+log_dir = "{}"
+
+[agg.qa]
+source_reqtype = "qar"
+output_path = "{}"
+allowed_dpids = ["aeos", "unknown_dp", "cms", "notindb"]
+exclude_from_rollup = ["*_stats"]
+""".format(catalog_db, tmp_path / "logs", output_root / "qa")
+        )
+
+        # Run CLI with caplog capturing pyaggregate.run.inputs logger
+        with caplog.at_level(logging.WARNING, logger="pyaggregate.run.inputs"):
+            result = cli_runner.invoke(
+                app,
+                [
+                    "run",
+                    "--type",
+                    "qa",
+                    "--config",
+                    str(config_file),
+                ],
+            )
+
+        assert result.exit_code == 0, f"Run should succeed. Output: {result.output}"
+
+        # Find warning records from pyaggregate.run.inputs logger
+        warning_records = [
+            r
+            for r in caplog.records
+            if r.name == "pyaggregate.run.inputs" and r.levelname == "WARNING"
+        ]
+
+        assert len(warning_records) > 0, "Expected at least one warning for unknown DPIDs"
+
+        # Verify warnings mention the unknown DPIDs
+        all_messages = " ".join(r.message for r in warning_records)
+        assert "unknown_dp" in all_messages, "Warning should mention 'unknown_dp'"
+        assert "notindb" in all_messages, "Warning should mention 'notindb'"
+
+        # Verify extra dict contains run_id and agg_type
+        for record in warning_records:
+            assert hasattr(
+                record, "run_id"
+            ), "Log record should have run_id in extra dict"
+            assert hasattr(
+                record, "agg_type"
+            ), "Log record should have agg_type in extra dict"
+            assert record.agg_type == "qa", "agg_type should be 'qa'"
+            # run_id defaults to today's ISO date
+            from datetime import date as date_cls
+
+            expected_run_id = date_cls.today().isoformat()
+            assert (
+                record.run_id == expected_run_id
+            ), f"run_id should be {expected_run_id}, got {record.run_id}"
 
 
 class TestClassifyException:
