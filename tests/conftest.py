@@ -3,8 +3,12 @@
 from typing import Any
 from unittest.mock import patch
 
-import polars as pl
 import pytest
+
+try:
+    import polars as pl
+except ImportError:
+    pl = None  # type: ignore
 
 
 @pytest.fixture
@@ -14,6 +18,8 @@ def patch_sas_reader_for_parquet():
     Used by e2e tests to read synthetic fixtures that are parquet files
     with .sas7bdat extension (since pyreadstat cannot write SAS files).
     """
+    if pl is None:
+        pytest.skip("polars not installed")
 
     def _patched_scan_readstat(
         path: str,

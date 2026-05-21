@@ -8,7 +8,6 @@ import pytest
 
 from pyaggregate.config import (
     AppConfig,
-    OutputConfig,
     ScanConfig,
     StateConfig,
     load_config,
@@ -30,20 +29,20 @@ requests_root = "/data/requests"
 catalog_db = "/data/state/catalog.db"
 log_dir = "/data/state/logs"
 
-[output]
-output_root = "/data/outputs"
-
 [agg.qa]
 source_reqtype = "qar"
+output_path = "/data/outputs/qa"
 exclude_from_rollup = ["*_stats"]
 
 [agg.qm]
 source_reqtype = "qmr"
+output_path = "/data/outputs/qm"
 exclude_from_rollup = ["*_stats"]
 
 [agg.sdd]
 source_field = "has_scdm"
 subdirectory = "scdm_snapshot"
+output_path = "/data/outputs/sdd"
 exclude_from_rollup = []
 """)
 
@@ -53,7 +52,6 @@ exclude_from_rollup = []
         assert isinstance(config, AppConfig)
         assert isinstance(config.scan, ScanConfig)
         assert isinstance(config.state, StateConfig)
-        assert isinstance(config.output, OutputConfig)
         assert isinstance(config.agg_types, dict)
 
         # Verify scan section
@@ -62,9 +60,6 @@ exclude_from_rollup = []
         # Verify state section
         assert config.state.catalog_db == Path("/data/state/catalog.db")
         assert config.state.log_dir == Path("/data/state/logs")
-
-        # Verify output section
-        assert config.output.output_root == Path("/data/outputs")
 
         # Verify agg types
         assert "qa" in config.agg_types
@@ -75,6 +70,7 @@ exclude_from_rollup = []
         qa_config = config.agg_types["qa"]
         assert qa_config.name == "qa"
         assert qa_config.source_reqtype == "qar"
+        assert qa_config.output_path == Path("/data/outputs/qa")
         assert qa_config.exclude_from_rollup == ("*_stats",)
 
         # Verify sdd config
@@ -82,6 +78,7 @@ exclude_from_rollup = []
         assert sdd_config.name == "sdd"
         assert sdd_config.source_field == "has_scdm"
         assert sdd_config.subdirectory == "scdm_snapshot"
+        assert sdd_config.output_path == Path("/data/outputs/sdd")
 
     def test_missing_scan_section(self, tmp_path: Path) -> None:
         """Raise ValueError when [scan] section is missing."""
@@ -90,9 +87,6 @@ exclude_from_rollup = []
 [state]
 catalog_db = "/data/state/catalog.db"
 log_dir = "/data/state/logs"
-
-[output]
-output_root = "/data/outputs"
 """)
 
         with pytest.raises(ValueError, match="missing.*scan"):
@@ -107,9 +101,6 @@ output_root = "/data/outputs"
 [state]
 catalog_db = "/data/state/catalog.db"
 log_dir = "/data/state/logs"
-
-[output]
-output_root = "/data/outputs"
 """)
 
         with pytest.raises(ValueError, match="requests_root"):
@@ -126,11 +117,9 @@ requests_root = "/data/requests"
 catalog_db = "/data/state/catalog.db"
 log_dir = "/data/state/logs"
 
-[output]
-output_root = "/data/outputs"
-
 [agg.qa]
 source_reqtype = "qar"
+output_path = "/data/outputs/qa"
 
 [agg.qa.tables.ae]
 rollup_keys = ["col1", "col2"]
@@ -158,11 +147,9 @@ requests_root = "/data/requests"
 catalog_db = "/data/state/catalog.db"
 log_dir = "/data/state/logs"
 
-[output]
-output_root = "/data/outputs"
-
 [agg.qa]
 source_reqtype = "qar"
+output_path = "/data/outputs/qa"
 """)
 
         config = load_config(config_file)
@@ -182,11 +169,9 @@ requests_root = "/data/requests"
 catalog_db = "/data/state/catalog.db"
 log_dir = "/data/state/logs"
 
-[output]
-output_root = "/data/outputs"
-
 [agg.qa]
 source_reqtype = "qar"
+output_path = "/data/outputs/qa"
 """)
 
         config = load_config(config_file)
@@ -198,6 +183,85 @@ source_reqtype = "qar"
         # Try to mutate ScanConfig
         with pytest.raises(FrozenInstanceError):
             config.scan.requests_root = Path("/new/path")  # type: ignore
+
+    def test_legacy_output_section_rejected(self, tmp_path: Path) -> None:
+        """Reject config with legacy [output] section (AC4.1 and AC4.2)."""
+        config_file = tmp_path / "legacy_config.toml"
+        config_file.write_text("""
+[scan]
+requests_root = "/data/requests"
+
+[state]
+catalog_db = "/data/state/catalog.db"
+log_dir = "/data/state/logs"
+
+[output]
+output_root = "/data/outputs"
+
+[agg.qa]
+source_reqtype = "qar"
+output_path = "/data/outputs/qa"
+""")
+
+        with pytest.raises(ValueError, match=r"\[output\] section has been removed"):
+            load_config(config_file)
+
+    def test_missing_output_path_rejected(self, tmp_path: Path) -> None:
+        """Reject config with agg block missing output_path (AC1.4)."""
+        config_file = tmp_path / "missing_output_path.toml"
+        config_file.write_text("""
+[scan]
+requests_root = "/data/requests"
+
+[state]
+catalog_db = "/data/state/catalog.db"
+log_dir = "/data/state/logs"
+
+[agg.qa]
+source_reqtype = "qar"
+""")
+
+        with pytest.raises(ValueError, match=r"\[agg\.qa\].*output_path"):
+            load_config(config_file)
+
+    def test_output_path_tilde_expansion(self, tmp_path: Path) -> None:
+        """Expand ~ in output_path to home directory at load time (AC1.3)."""
+        config_file = tmp_path / "tilde_config.toml"
+        config_file.write_text("""
+[scan]
+requests_root = "/data/requests"
+
+[state]
+catalog_db = "/data/state/catalog.db"
+log_dir = "/data/state/logs"
+
+[agg.qa]
+source_reqtype = "qar"
+output_path = "~/outputs/qa"
+""")
+
+        config = load_config(config_file)
+        expected_path = Path.home() / "outputs" / "qa"
+        assert config.agg_types["qa"].output_path == expected_path
+
+    def test_output_path_relative_preserved(self, tmp_path: Path) -> None:
+        """Keep relative output_path relative (AC1.5)."""
+        config_file = tmp_path / "relative_config.toml"
+        config_file.write_text("""
+[scan]
+requests_root = "/data/requests"
+
+[state]
+catalog_db = "/data/state/catalog.db"
+log_dir = "/data/state/logs"
+
+[agg.qa]
+source_reqtype = "qar"
+output_path = "relative/path"
+""")
+
+        config = load_config(config_file)
+        assert config.agg_types["qa"].output_path == Path("relative/path")
 
 
 class TestResolveConfigPath:
