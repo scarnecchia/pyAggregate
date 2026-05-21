@@ -7,6 +7,7 @@ import os
 import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import polars as pl
 import pyarrow.parquet as pq
@@ -232,7 +233,7 @@ def check_run_exists(output_path: Path, run_id: str) -> bool:
     return run_dir.exists()
 
 
-def build_manifest_entry(parquet_path: Path, run_dir: Path) -> dict:
+def build_manifest_entry(parquet_path: Path, run_dir: Path) -> dict[str, Any]:
     """Build manifest entry for a single parquet file from its footer metadata.
 
     Args:
@@ -261,7 +262,7 @@ def collect_manifest(
     agg_type: str,
     run_id: str,
     table_inputs_dict: dict[str, list[TableInput]] | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Collect manifest metadata from a completed run directory.
 
     Walks the run directory to read parquet file footers and dpid_map.csv,
@@ -285,8 +286,8 @@ def collect_manifest(
     for parquet_file in sorted(run_dir.rglob("*.parquet")):
         try:
             entry = build_manifest_entry(parquet_file, run_dir)
-        except Exception:
-            logger.warning("Failed to read parquet metadata: %s", parquet_file)
+        except Exception as e:
+            logger.warning("Failed to read parquet metadata: %s: %s", parquet_file, e)
             continue
         output_type = parquet_file.parent.name
         table_name = parquet_file.stem

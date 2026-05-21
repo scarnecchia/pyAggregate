@@ -874,6 +874,43 @@ class TestCollectManifest:
         # But tables should still be populated from disk
         assert len(manifest["tables"]) > 0
 
+    def test_manifest_corrupt_parquet_tolerance(self, tmp_path, table_outputs, dpid_map) -> None:
+        """Test corrupt parquet tolerance: corrupt file skipped, rest succeeds.
+
+        A corrupt parquet file in the run directory is skipped with a warning;
+        the rest of the manifest is still correct.
+        """
+        output_path = tmp_path / "outputs" / "qa"
+        write_run(
+            output_path=output_path,
+            agg_type="qa",
+            run_id="2026-05-14",
+            table_outputs=table_outputs,
+            dpid_map_frame=dpid_map,
+            update_latest=False,
+        )
+
+        run_dir = output_path / "2026-05-14"
+
+        # Create a corrupt parquet file by writing invalid data with .parquet extension
+        corrupt_path = run_dir / "stacked" / "corrupt_table.parquet"
+        with open(corrupt_path, "w") as f:
+            f.write("this is not valid parquet data\n")
+
+        # Call collect_manifest — should skip the corrupt file and succeed
+        manifest = collect_manifest(run_dir, "qa", "2026-05-14")
+
+        # Valid parquet files should still be in the manifest
+        assert "ae" in manifest["tables"]
+        assert "ae_stats" in manifest["tables"]
+
+        # The corrupt_table should not appear in the manifest
+        assert "corrupt_table" not in manifest["tables"]
+
+        # Manifest structure should be valid
+        assert manifest["manifest_version"] == 1
+        assert manifest["agg_type"] == "qa"
+
 
 class TestManifestIntegration:
     """Tests for manifest.json writing via write_run."""
