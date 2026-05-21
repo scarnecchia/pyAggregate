@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from pyaggregate.config import AppConfig, OutputConfig, ScanConfig, StateConfig
+from pyaggregate.config import AppConfig, AggTypeConfig, ScanConfig, StateConfig
 from pyaggregate.io.catalog_store import CatalogStore
 from pyaggregate.io.scanner import run_scan, run_scan_dry
 
@@ -66,7 +66,6 @@ def create_config(requests_root: Path, catalog_db: Path, tmp_path: Path) -> AppC
             catalog_db=catalog_db,
             log_dir=tmp_path / "logs",
         ),
-        output=OutputConfig(output_root=tmp_path / "output"),
         agg_types={},
     )
 

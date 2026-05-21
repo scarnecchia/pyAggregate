@@ -75,7 +75,6 @@ class TestScannerLockIntegration:
         """Scanner exits early with log message when lock is already held."""
         from pyaggregate.config import (
             AppConfig,
-            OutputConfig,
             ScanConfig,
             StateConfig,
         )
@@ -93,7 +92,6 @@ class TestScannerLockIntegration:
                 catalog_db=catalog_db,
                 log_dir=tmp_path / "logs",
             ),
-            output=OutputConfig(output_root=tmp_path / "output"),
             agg_types={},
         )
 

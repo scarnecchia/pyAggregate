@@ -113,6 +113,11 @@ def load_config(path: Path) -> AppConfig:
             raise ValueError(
                 f"[agg.{agg_name}] missing required field 'output_path'"
             )
+        if not isinstance(agg_config["output_path"], str):
+            raise ValueError(
+                f"[agg.{agg_name}] output_path must be a string, "
+                f"got {type(agg_config['output_path']).__name__}"
+            )
         output_path = Path(agg_config["output_path"]).expanduser()
 
         # Extract basic agg type config

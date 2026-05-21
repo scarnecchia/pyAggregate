@@ -10,7 +10,7 @@ import pytest
 from typer.testing import CliRunner
 
 from pyaggregate.cli import app, classify_exception
-from pyaggregate.config import AggTypeConfig, AppConfig, OutputConfig, ScanConfig, StateConfig
+from pyaggregate.config import AggTypeConfig, AppConfig, ScanConfig, StateConfig
 from pyaggregate.io.catalog_store import CatalogStore
 
 
@@ -63,11 +63,10 @@ def test_config(tmp_path: Path) -> tuple[Path, AppConfig]:
     config = AppConfig(
         scan=ScanConfig(requests_root=Path("/data/requests")),
         state=StateConfig(catalog_db=catalog_db, log_dir=tmp_path / "logs"),
-        output=OutputConfig(output_root=output_root),
         agg_types={
-            "qa": AggTypeConfig(name="qa", source_reqtype="qar", exclude_from_rollup=("*_stats",)),
-            "qm": AggTypeConfig(name="qm", source_reqtype="qmr", exclude_from_rollup=("*_stats",)),
-            "sdd": AggTypeConfig(name="sdd", source_field="has_scdm", subdirectory="scdm_snapshot", exclude_from_rollup=()),
+            "qa": AggTypeConfig(name="qa", output_path=output_root / "qa", source_reqtype="qar", exclude_from_rollup=("*_stats",)),
+            "qm": AggTypeConfig(name="qm", output_path=output_root / "qm", source_reqtype="qmr", exclude_from_rollup=("*_stats",)),
+            "sdd": AggTypeConfig(name="sdd", output_path=output_root / "sdd", source_field="has_scdm", subdirectory="scdm_snapshot", exclude_from_rollup=()),
         },
     )
 
@@ -81,22 +80,22 @@ requests_root = "/data/requests"
 catalog_db = "{}"
 log_dir = "{}"
 
-[output]
-output_root = "{}"
-
 [agg.qa]
 source_reqtype = "qar"
+output_path = "{}"
 exclude_from_rollup = ["*_stats"]
 
 [agg.qm]
 source_reqtype = "qmr"
+output_path = "{}"
 exclude_from_rollup = ["*_stats"]
 
 [agg.sdd]
 source_field = "has_scdm"
 subdirectory = "scdm_snapshot"
+output_path = "{}"
 exclude_from_rollup = []
-""".format(catalog_db, tmp_path / "logs", output_root)
+""".format(catalog_db, tmp_path / "logs", output_root / "qa", output_root / "qm", output_root / "sdd")
     )
 
     return config_file, config
