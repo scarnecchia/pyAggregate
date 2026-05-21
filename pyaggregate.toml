@@ -1,0 +1,22 @@
+[scan]
+requests_root = "/data/requests"
+
+[state]
+catalog_db = "/data/state/catalog.db"
+log_dir = "/data/state/logs"
+
+[agg.qa]
+source_reqtype = "qar"
+output_path = "/data/outputs/qa"
+exclude_from_rollup = ["*_stats"]
+
+[agg.qm]
+source_reqtype = "qmr"
+output_path = "/data/outputs/qm"
+exclude_from_rollup = ["*_stats"]
+
+[agg.sdd]
+source_field = "has_scdm"
+subdirectory = "scdm_snapshot"
+output_path = "/data/outputs/sdd"
+exclude_from_rollup = []
