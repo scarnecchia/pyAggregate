@@ -6,7 +6,7 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from pyaggregate.io.writer import check_run_exists, filter_dpid_map, write_run
+from pyaggregate.io.writer import build_manifest_entry, check_run_exists, filter_dpid_map, write_run
 
 
 @pytest.fixture
@@ -464,3 +464,89 @@ class TestFilterDpidMap:
 
         assert result.height == 1
         assert result["surrogate_id"][0] == "dp_001"
+
+
+class TestBuildManifestEntry:
+    """Tests for build_manifest_entry function."""
+
+    def test_manifest_entry_num_rows(self, tmp_path) -> None:
+        """Test AC2.2: num_rows matches parquet content."""
+        run_dir = tmp_path / "run"
+        run_dir.mkdir()
+        output_dir = run_dir / "stacked"
+        output_dir.mkdir()
+
+        df = pl.DataFrame(
+            {
+                "dpid": ["aeos", "cms", "kpsc"],
+                "col1": [1, 2, 3],
+            }
+        )
+        parquet_path = output_dir / "ae.parquet"
+        df.write_parquet(str(parquet_path))
+
+        entry = build_manifest_entry(parquet_path, run_dir)
+
+        assert entry["num_rows"] == 3
+
+    def test_manifest_entry_num_columns(self, tmp_path) -> None:
+        """Test AC2.3: num_columns matches parquet content."""
+        run_dir = tmp_path / "run"
+        run_dir.mkdir()
+        output_dir = run_dir / "stacked"
+        output_dir.mkdir()
+
+        df = pl.DataFrame(
+            {
+                "dpid": ["aeos"],
+                "col1": [1],
+                "col2": [2],
+                "col3": [3],
+            }
+        )
+        parquet_path = output_dir / "ae.parquet"
+        df.write_parquet(str(parquet_path))
+
+        entry = build_manifest_entry(parquet_path, run_dir)
+
+        assert entry["num_columns"] == 4
+
+    def test_manifest_entry_columns_list(self, tmp_path) -> None:
+        """Test AC2.4: columns list contains name and Arrow type for every column."""
+        run_dir = tmp_path / "run"
+        run_dir.mkdir()
+        output_dir = run_dir / "stacked"
+        output_dir.mkdir()
+
+        df = pl.DataFrame(
+            {
+                "dpid": ["aeos"],
+                "count": [42],
+            }
+        )
+        parquet_path = output_dir / "ae.parquet"
+        df.write_parquet(str(parquet_path))
+
+        entry = build_manifest_entry(parquet_path, run_dir)
+
+        assert len(entry["columns"]) == 2
+        assert entry["columns"][0]["name"] == "dpid"
+        assert "string" in entry["columns"][0]["type"].lower()
+        assert entry["columns"][1]["name"] == "count"
+        assert "int" in entry["columns"][1]["type"].lower()
+
+    def test_manifest_entry_relative_path(self, tmp_path) -> None:
+        """Test AC4.3: file value is a relative path."""
+        run_dir = tmp_path / "run"
+        run_dir.mkdir()
+        output_dir = run_dir / "stacked"
+        output_dir.mkdir()
+
+        df = pl.DataFrame({"col1": [1]})
+        parquet_path = output_dir / "ae.parquet"
+        df.write_parquet(str(parquet_path))
+
+        entry = build_manifest_entry(parquet_path, run_dir)
+
+        assert entry["file"] == "stacked/ae.parquet"
+        assert not entry["file"].startswith("/")

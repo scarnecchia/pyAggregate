@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import polars as pl
+import pyarrow.parquet as pq
 
 logger = logging.getLogger(__name__)
 
@@ -217,3 +218,27 @@ def check_run_exists(output_path: Path, run_id: str) -> bool:
     """
     run_dir = output_path / run_id
     return run_dir.exists()
+
+
+def build_manifest_entry(parquet_path: Path, run_dir: Path) -> dict:
+    """Build manifest entry for a single parquet file from its footer metadata.
+
+    Args:
+        parquet_path: Absolute path to the parquet file
+        run_dir: Absolute path to the run directory (for computing relative paths)
+
+    Returns:
+        Dict with file (relative path), num_rows, num_columns, and columns list
+    """
+    metadata = pq.read_metadata(str(parquet_path))
+    arrow_schema = metadata.schema.to_arrow_schema()
+
+    return {
+        "file": str(parquet_path.relative_to(run_dir)),
+        "num_rows": metadata.num_rows,
+        "num_columns": metadata.num_columns,
+        "columns": [
+            {"name": field.name, "type": str(field.type)}
+            for field in arrow_schema
+        ],
+    }
