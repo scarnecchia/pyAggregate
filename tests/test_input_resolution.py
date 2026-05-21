@@ -10,7 +10,9 @@ import pytest
 from pyaggregate.config import AggTypeConfig
 from pyaggregate.core.input_resolution import (
     TableInput,
+    check_unknown_dpids,
     detect_snapshot_collisions,
+    filter_allowed_dpids,
     filter_catalog,
     group_inputs_by_table,
     select_latest_workplan_per_dp,
@@ -121,6 +123,125 @@ class TestFilterCatalog:
 
         expected_cols = {"dpid", "wpid", "reqtype", "verid", "msoc_path", "has_scdm", "observed_at"}
         assert set(result.columns) == expected_cols
+
+
+class TestFilterAllowedDpids:
+    """Tests for filter_allowed_dpids (pure core function).
+
+    Verifies DPID filtering for allowed_dpids configuration.
+    """
+
+    def test_filter_specific_dpids_returns_matching_rows(self, catalog_fixture: CatalogFixture) -> None:
+        """dpid-filtering.AC2.1: Specific DPIDs filter catalog to matching rows."""
+        catalog = catalog_fixture.catalog()
+        allowed_dpids = ("aeos", "cms")
+
+        result = filter_allowed_dpids(catalog, allowed_dpids)
+
+        dpids_in_result = set(result["dpid"].unique().to_list())
+        assert dpids_in_result == {"aeos", "cms"}
+        assert len(result) == 4  # All rows from aeos and cms
+
+    def test_filter_wildcard_returns_all_rows(self, catalog_fixture: CatalogFixture) -> None:
+        """dpid-filtering.AC2.2: Wildcard ["*"] returns catalog unchanged."""
+        catalog = catalog_fixture.catalog()
+        allowed_dpids = ("*",)
+
+        result = filter_allowed_dpids(catalog, allowed_dpids)
+
+        assert len(result) == len(catalog)
+        assert set(result.columns) == set(catalog.columns)
+
+    def test_filter_empty_list_returns_empty_dataframe(self, catalog_fixture: CatalogFixture) -> None:
+        """dpid-filtering.AC2.3: Empty list [] returns empty DataFrame."""
+        catalog = catalog_fixture.catalog()
+        allowed_dpids = ()
+
+        result = filter_allowed_dpids(catalog, allowed_dpids)
+
+        assert len(result) == 0
+        assert set(result.columns) == set(catalog.columns)
+
+    def test_filter_preserves_all_columns(self, catalog_fixture: CatalogFixture) -> None:
+        """dpid-filtering.AC2.4: All columns preserved after filtering (schema unchanged)."""
+        catalog = catalog_fixture.catalog()
+        allowed_dpids = ("aeos",)
+
+        result = filter_allowed_dpids(catalog, allowed_dpids)
+
+        expected_cols = {"dpid", "wpid", "reqtype", "verid", "msoc_path", "has_scdm", "observed_at"}
+        assert set(result.columns) == expected_cols
+
+    def test_filter_unknown_dpid_no_error(self, catalog_fixture: CatalogFixture) -> None:
+        """dpid-filtering.AC2.5: DPID in allowed list but not in catalog produces empty result (no error)."""
+        catalog = catalog_fixture.catalog()
+        allowed_dpids = ("aeos", "unknown_dp")
+
+        result = filter_allowed_dpids(catalog, allowed_dpids)
+
+        dpids_in_result = set(result["dpid"].unique().to_list())
+        assert dpids_in_result == {"aeos"}
+        assert len(result) == 2  # Only aeos rows
+
+
+class TestCheckUnknownDpids:
+    """Tests for check_unknown_dpids (pure core function).
+
+    Verifies warning generation for DPIDs in config but not in catalog.
+    """
+
+    def test_check_unknown_dpids_warns_for_missing_dpid(self) -> None:
+        """dpid-filtering.AC3.1: DPID in config but not in catalog generates warning."""
+        allowed_dpids = ("aeos", "unknown_dp")
+        catalog_dpids = {"aeos", "cms"}
+
+        warnings = check_unknown_dpids(allowed_dpids, catalog_dpids)
+
+        assert len(warnings) == 1
+        assert "unknown_dp" in warnings[0]
+        assert "not found in the catalog" in warnings[0]
+
+    def test_check_unknown_dpids_wildcard_no_warnings(self) -> None:
+        """dpid-filtering.AC3.2: Wildcard skips unknown-DPID check entirely (no warnings)."""
+        allowed_dpids = ("*",)
+        catalog_dpids = {"aeos", "cms"}
+
+        warnings = check_unknown_dpids(allowed_dpids, catalog_dpids)
+
+        assert warnings == []
+
+    def test_check_unknown_dpids_all_found_no_warnings(self) -> None:
+        """dpid-filtering.AC3.3: All DPIDs found in catalog produces no warnings."""
+        allowed_dpids = ("aeos", "cms")
+        catalog_dpids = {"aeos", "cms"}
+
+        warnings = check_unknown_dpids(allowed_dpids, catalog_dpids)
+
+        assert warnings == []
+
+    def test_check_unknown_dpids_multiple_unknown(self) -> None:
+        """Multiple unknown DPIDs each generate a warning."""
+        allowed_dpids = ("aeos", "unknown_dp1", "unknown_dp2")
+        catalog_dpids = {"aeos", "cms"}
+
+        warnings = check_unknown_dpids(allowed_dpids, catalog_dpids)
+
+        assert len(warnings) == 2
+        warning_str = " ".join(warnings)
+        assert "unknown_dp1" in warning_str
+        assert "unknown_dp2" in warning_str
+
+    def test_check_unknown_dpids_sorted_output(self) -> None:
+        """Unknown DPIDs are returned in sorted order."""
+        allowed_dpids = ("zebra", "apple", "banana")
+        catalog_dpids = {"aeos"}
+
+        warnings = check_unknown_dpids(allowed_dpids, catalog_dpids)
+
+        assert len(warnings) == 3
+        # Warnings should be in sorted order of DPIDs
+        warning_dpids = [w.split("'")[1] for w in warnings]
+        assert warning_dpids == sorted(warning_dpids)
 
 
 class TestWpidSortKey:
