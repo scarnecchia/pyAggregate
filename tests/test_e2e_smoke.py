@@ -135,21 +135,37 @@ exclude_from_rollup = []
         result = runner.invoke(app, ["run", "--config", str(config_path)])
         assert result.exit_code == 0, f"run failed: {result.output}"
 
+        # Build per-agg output paths dict for verification
+        agg_output_paths = {
+            "qa": output_dir / "qa",
+            "qm": output_dir / "qm",
+            "snapshot": output_dir / "snapshot",
+        }
+
         # Verify output files exist
-        _verify_output_files_exist(output_dir)
+        _verify_output_files_exist(agg_output_paths)
 
         # Verify row counts are consistent
-        _verify_row_count_consistency(output_dir)
+        _verify_row_count_consistency(agg_output_paths)
 
         # Verify dpid_map exists and is valid
-        _verify_dpid_map_valid(output_dir)
+        _verify_dpid_map_valid(agg_output_paths)
 
         # Verify no .tmp files remain
         tmp_files = list(output_dir.rglob("*.tmp"))
         assert len(tmp_files) == 0, f"Orphaned .tmp files found: {tmp_files}"
 
         # Verify latest symlinks
-        _verify_latest_symlinks(output_dir)
+        _verify_latest_symlinks(agg_output_paths)
+
+        # AC1.2: Verify each agg type wrote to its own independent output_path
+        for agg_type, agg_output_path in agg_output_paths.items():
+            assert agg_output_path.exists(), f"{agg_type} output_path missing: {agg_output_path}"
+
+        # Assert no common parent beyond output_dir itself
+        output_parents = {p.parent for p in agg_output_paths.values()}
+        assert len(output_parents) == 1, "Agg output paths should share only one common parent"
+        assert output_parents.pop() == output_dir, "Common parent should be the base output_dir"
 
     def test_full_pipeline_ac9_2_rerun_with_force(self, tmp_path: Path) -> None:
         """AC9.2: Re-running with --run-id and --force overwrites cleanly.
@@ -227,8 +243,15 @@ exclude_from_rollup = []
         )
         assert result.exit_code == 0, f"First run failed: {result.output}"
 
+        # Build per-agg output paths dict for verification
+        agg_output_paths = {
+            "qa": output_dir / "qa",
+            "qm": output_dir / "qm",
+            "snapshot": output_dir / "snapshot",
+        }
+
         # Capture first run outputs
-        first_run_outputs = _capture_output_row_counts(output_dir, run_id)
+        first_run_outputs = _capture_output_row_counts(agg_output_paths, run_id)
 
         # Second run: re-run with --force
         result = runner.invoke(
@@ -245,42 +268,40 @@ exclude_from_rollup = []
         assert result.exit_code == 0, f"Second run (with --force) failed: {result.output}"
 
         # Verify outputs still exist and are consistent
-        _verify_output_files_exist(output_dir, run_id)
-        _verify_row_count_consistency(output_dir, run_id)
-        _verify_dpid_map_valid(output_dir, run_id)
+        _verify_output_files_exist(agg_output_paths, run_id)
+        _verify_row_count_consistency(agg_output_paths, run_id)
+        _verify_dpid_map_valid(agg_output_paths, run_id)
 
         # Verify row counts are still consistent (may differ slightly due to randomness)
         # but should have same structure
-        second_run_outputs = _capture_output_row_counts(output_dir, run_id)
+        second_run_outputs = _capture_output_row_counts(agg_output_paths, run_id)
         assert set(first_run_outputs.keys()) == set(second_run_outputs.keys()), (
             "Output tables changed between runs"
         )
 
 
-def _verify_output_files_exist(output_dir: Path, run_id: str = "latest") -> None:
+def _verify_output_files_exist(agg_output_paths: dict[str, Path], run_id: str = "latest") -> None:
     """Verify all expected output files exist.
 
     Args:
-        output_dir: Root output directory
+        agg_output_paths: Mapping of agg_type to its output_path
         run_id: Run identifier (defaults to latest)
     """
-    for agg_type in ["qa", "qm", "snapshot"]:
-        agg_dir = output_dir / agg_type
-
+    for agg_type, agg_output_path in agg_output_paths.items():
         # Skip agg types that weren't run (no directories)
-        if not agg_dir.exists():
+        if not agg_output_path.exists():
             continue
 
         if run_id == "latest":
             # Check latest symlink
-            latest_dir = agg_dir / "latest"
+            latest_dir = agg_output_path / "latest"
             if not latest_dir.exists():
                 # If there's no latest symlink, skip this agg type
                 continue
             assert latest_dir.is_symlink(), f"{agg_type}/latest is not a symlink"
             run_base = latest_dir.resolve()
         else:
-            run_base = agg_dir / run_id
+            run_base = agg_output_path / run_id
             if not run_base.exists():
                 # Skip if this agg_type wasn't run
                 continue
@@ -299,7 +320,7 @@ def _verify_output_files_exist(output_dir: Path, run_id: str = "latest") -> None
         assert len(stacked_tables) > 0, f"No parquet files in stacked for {agg_type}/{run_id}"
 
 
-def _verify_row_count_consistency(output_dir: Path, run_id: str = "latest") -> None:
+def _verify_row_count_consistency(agg_output_paths: dict[str, Path], run_id: str = "latest") -> None:
     """Verify row count consistency within and across output types.
 
     Rules:
@@ -307,23 +328,21 @@ def _verify_row_count_consistency(output_dir: Path, run_id: str = "latest") -> N
     - Rollup rows <= stacked rows for each table
 
     Args:
-        output_dir: Root output directory
+        agg_output_paths: Mapping of agg_type to its output_path
         run_id: Run identifier (defaults to latest)
     """
-    for agg_type in ["qa", "qm", "snapshot"]:
-        agg_dir = output_dir / agg_type
-
+    for agg_type, agg_output_path in agg_output_paths.items():
         # Skip agg types that weren't run
-        if not agg_dir.exists():
+        if not agg_output_path.exists():
             continue
 
         if run_id == "latest":
-            latest_dir = agg_dir / "latest"
+            latest_dir = agg_output_path / "latest"
             if not latest_dir.exists():
                 continue
             run_base = latest_dir.resolve()
         else:
-            run_base = agg_dir / run_id
+            run_base = agg_output_path / run_id
             if not run_base.exists():
                 continue
 
@@ -362,27 +381,25 @@ def _verify_row_count_consistency(output_dir: Path, run_id: str = "latest") -> N
                     )
 
 
-def _verify_dpid_map_valid(output_dir: Path, run_id: str = "latest") -> None:
+def _verify_dpid_map_valid(agg_output_paths: dict[str, Path], run_id: str = "latest") -> None:
     """Verify dpid_map exists and contains valid surrogates.
 
     Args:
-        output_dir: Root output directory
+        agg_output_paths: Mapping of agg_type to its output_path
         run_id: Run identifier (defaults to latest)
     """
-    for agg_type in ["qa", "qm", "snapshot"]:
-        agg_dir = output_dir / agg_type
-
+    for agg_type, agg_output_path in agg_output_paths.items():
         # Skip agg types that weren't run
-        if not agg_dir.exists():
+        if not agg_output_path.exists():
             continue
 
         if run_id == "latest":
-            latest_dir = agg_dir / "latest"
+            latest_dir = agg_output_path / "latest"
             if not latest_dir.exists():
                 continue
             run_base = latest_dir.resolve()
         else:
-            run_base = agg_dir / run_id
+            run_base = agg_output_path / run_id
             if not run_base.exists():
                 continue
 
@@ -405,20 +422,18 @@ def _verify_dpid_map_valid(output_dir: Path, run_id: str = "latest") -> None:
                 )
 
 
-def _verify_latest_symlinks(output_dir: Path) -> None:
+def _verify_latest_symlinks(agg_output_paths: dict[str, Path]) -> None:
     """Verify latest symlinks resolve correctly for each agg type.
 
     Args:
-        output_dir: Root output directory
+        agg_output_paths: Mapping of agg_type to its output_path
     """
-    for agg_type in ["qa", "qm", "snapshot"]:
-        agg_dir = output_dir / agg_type
-
+    for agg_type, agg_output_path in agg_output_paths.items():
         # Skip if agg type wasn't run
-        if not agg_dir.exists():
+        if not agg_output_path.exists():
             continue
 
-        latest_link = agg_dir / "latest"
+        latest_link = agg_output_path / "latest"
         if not latest_link.exists():
             # Skip if no latest symlink (agg type wasn't run)
             continue
@@ -427,11 +442,11 @@ def _verify_latest_symlinks(output_dir: Path) -> None:
         assert latest_link.resolve().exists(), f"{agg_type}/latest points to non-existent target"
 
 
-def _capture_output_row_counts(output_dir: Path, run_id: str) -> dict[str, Any]:
+def _capture_output_row_counts(agg_output_paths: dict[str, Path], run_id: str) -> dict[str, Any]:
     """Capture row counts from all outputs for comparison.
 
     Args:
-        output_dir: Root output directory
+        agg_output_paths: Mapping of agg_type to its output_path
         run_id: Run identifier
 
     Returns:
@@ -439,12 +454,11 @@ def _capture_output_row_counts(output_dir: Path, run_id: str) -> dict[str, Any]:
     """
     counts: dict[str, Any] = {}
 
-    for agg_type in ["qa", "qm", "snapshot"]:
-        agg_dir = output_dir / agg_type
-        if not agg_dir.exists():
+    for agg_type, agg_output_path in agg_output_paths.items():
+        if not agg_output_path.exists():
             continue
 
-        run_base = agg_dir / run_id
+        run_base = agg_output_path / run_id
         if not run_base.exists():
             continue
 
