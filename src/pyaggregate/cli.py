@@ -2,6 +2,8 @@
 """CLI entry point for pyaggregate."""
 
 import logging
+import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import polars as pl
@@ -239,33 +241,41 @@ def run(
                         },
                     )
 
-            # Aggregate each table
+            # Aggregate tables concurrently (Polars releases the GIL)
+            max_workers = min(len(table_inputs_dict), os.cpu_count() or 4)
             table_outputs: dict[str, dict[str, object]] = {}
             tables_skipped: list[dict] = []
-            for table_name, table_inputs_list in table_inputs_dict.items():
-                try:
-                    outputs = aggregate_table(
+
+            with ThreadPoolExecutor(max_workers=max_workers) as pool:
+                future_to_table = {
+                    pool.submit(
+                        aggregate_table,
                         table_inputs=table_inputs_list,
                         dpid_map=dpid_map_df,
                         agg_config=agg_config,
                         table_name=table_name,
                         reader_fn=read_table,
-                    )
-                    table_outputs[table_name] = outputs
-                except Exception as e:
-                    error_class = classify_exception(e)
-                    typer.echo(
-                        f"warning: failed to aggregate table {table_name}: {e}",
-                        err=True,
-                    )
-                    tables_skipped.append(
-                        {
-                            "table": table_name,
-                            "error_class": error_class,
-                            "detail": str(e),
-                        }
-                    )
-                    # Continue with remaining tables (partial success)
+                    ): table_name
+                    for table_name, table_inputs_list in table_inputs_dict.items()
+                }
+
+                for future in as_completed(future_to_table):
+                    table_name = future_to_table[future]
+                    try:
+                        table_outputs[table_name] = future.result()
+                    except Exception as e:
+                        error_class = classify_exception(e)
+                        typer.echo(
+                            f"warning: failed to aggregate table {table_name}: {e}",
+                            err=True,
+                        )
+                        tables_skipped.append(
+                            {
+                                "table": table_name,
+                                "error_class": error_class,
+                                "detail": str(e),
+                            }
+                        )
 
             # Track exit code for this agg_type
             has_partial_failure = len(tables_skipped) > 0 and len(table_outputs) > 0
