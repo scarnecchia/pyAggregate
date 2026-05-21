@@ -230,6 +230,7 @@ def run(
             if table_outputs:
                 write_run(
                     output_path=agg_config.output_path,
+                    agg_type=agg_type,
                     run_id=run_id,
                     table_outputs=table_outputs,
                     dpid_map_frame=dpid_map_df,

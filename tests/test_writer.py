@@ -68,6 +68,7 @@ def test_write_run_creates_directory_structure(tmp_path, table_outputs, dpid_map
 
     write_run(
         output_path=output_path,
+        agg_type="qa",
         run_id="2026-05-14",
         table_outputs=table_outputs,
         dpid_map_frame=dpid_map,
@@ -86,6 +87,7 @@ def test_write_run_no_tmp_files_survive(tmp_path, table_outputs, dpid_map):
 
     write_run(
         output_path=output_path,
+        agg_type="qa",
         run_id="2026-05-14",
         table_outputs=table_outputs,
         dpid_map_frame=dpid_map,
@@ -103,6 +105,7 @@ def test_write_run_parquet_files_created(tmp_path, table_outputs, dpid_map):
 
     write_run(
         output_path=output_path,
+        agg_type="qa",
         run_id="2026-05-14",
         table_outputs=table_outputs,
         dpid_map_frame=dpid_map,
@@ -124,6 +127,7 @@ def test_write_run_stats_excluded_no_rollup(tmp_path, table_outputs, dpid_map):
 
     write_run(
         output_path=output_path,
+        agg_type="qa",
         run_id="2026-05-14",
         table_outputs=table_outputs,
         dpid_map_frame=dpid_map,
@@ -140,6 +144,7 @@ def test_write_run_dpid_map_filtered(tmp_path, table_outputs, dpid_map):
 
     write_run(
         output_path=output_path,
+        agg_type="qa",
         run_id="2026-05-14",
         table_outputs=table_outputs,
         dpid_map_frame=dpid_map,
@@ -166,6 +171,7 @@ def test_write_run_latest_symlink_created(tmp_path, table_outputs, dpid_map):
 
     write_run(
         output_path=output_path,
+        agg_type="qa",
         run_id="2026-05-14",
         table_outputs=table_outputs,
         dpid_map_frame=dpid_map,
@@ -189,6 +195,7 @@ def test_write_run_no_symlink_when_update_false(tmp_path, table_outputs, dpid_ma
 
     write_run(
         output_path=output_path,
+        agg_type="qa",
         run_id="2026-05-14",
         table_outputs=table_outputs,
         dpid_map_frame=dpid_map,
@@ -206,6 +213,7 @@ def test_write_run_atomic_symlink_update(tmp_path, table_outputs, dpid_map):
     # First run with update_latest=True
     write_run(
         output_path=output_path,
+        agg_type="qa",
         run_id="2026-05-13",
         table_outputs=table_outputs,
         dpid_map_frame=dpid_map,
@@ -218,6 +226,7 @@ def test_write_run_atomic_symlink_update(tmp_path, table_outputs, dpid_map):
     # Second run, update symlink
     write_run(
         output_path=output_path,
+        agg_type="qa",
         run_id="2026-05-14",
         table_outputs=table_outputs,
         dpid_map_frame=dpid_map,
@@ -237,6 +246,7 @@ def test_write_run_summary_json(tmp_path, table_outputs, dpid_map):
 
     write_run(
         output_path=output_path,
+        agg_type="qa",
         run_id="2026-05-14",
         table_outputs=table_outputs,
         dpid_map_frame=dpid_map,
@@ -249,6 +259,7 @@ def test_write_run_summary_json(tmp_path, table_outputs, dpid_map):
     with open(summary_path) as f:
         summary = json.load(f)
 
+    assert summary["agg_type"] == "qa"
     assert summary["run_id"] == "2026-05-14"
     assert "started_at" in summary
     assert "ended_at" in summary
@@ -272,6 +283,7 @@ def test_write_run_summary_json_with_skipped_tables(tmp_path, table_outputs, dpi
 
     write_run(
         output_path=output_path,
+        agg_type="qa",
         run_id="2026-05-14",
         table_outputs=table_outputs,
         dpid_map_frame=dpid_map,
@@ -298,6 +310,7 @@ def test_check_run_exists_returns_true(tmp_path, table_outputs, dpid_map):
 
     write_run(
         output_path=output_path,
+        agg_type="qa",
         run_id="2026-05-14",
         table_outputs=table_outputs,
         dpid_map_frame=dpid_map,
@@ -330,6 +343,7 @@ def test_write_run_cleans_orphaned_tmp_files(tmp_path, table_outputs, dpid_map):
     # Write run
     write_run(
         output_path=output_path,
+        agg_type="qa",
         run_id="2026-05-14",
         table_outputs=table_outputs,
         dpid_map_frame=dpid_map,
@@ -368,6 +382,7 @@ def test_write_run_empty_masked_surrogates(tmp_path, dpid_map):
     # Should not raise an exception
     write_run(
         output_path=output_path,
+        agg_type="qa",
         run_id="2026-05-14",
         table_outputs=table_outputs,
         dpid_map_frame=dpid_map,

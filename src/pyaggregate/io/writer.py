@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 def write_run(
     output_path: Path,
+    agg_type: str,
     run_id: str,
     table_outputs: dict[str, dict[str, pl.DataFrame]],
     dpid_map_frame: pl.DataFrame,
@@ -30,6 +31,7 @@ def write_run(
 
     Args:
         output_path: Per-agg output directory (from config agg_config.output_path)
+        agg_type: Aggregation type label (e.g., "qa", "qm", "sdd")
         run_id: Run identifier (directory name)
         table_outputs: Dict mapping table_name -> {output_type -> DataFrame}
         dpid_map_frame: Full dpid_map DataFrame to filter
@@ -103,6 +105,7 @@ def write_run(
     exit_code = 0 if not all_skipped else 2
 
     summary = build_run_summary(
+        agg_type=agg_type,
         run_id=run_id,
         started_at=started_at,
         ended_at=ended_at,
@@ -166,6 +169,7 @@ def filter_dpid_map(
 
 
 def build_run_summary(
+    agg_type: str,
     run_id: str,
     started_at: str,
     ended_at: str,
@@ -179,6 +183,7 @@ def build_run_summary(
     without parsing logs.
 
     Args:
+        agg_type: Aggregation type label (e.g., "qa", "qm", "sdd")
         run_id: Run identifier
         started_at: ISO timestamp of run start
         ended_at: ISO timestamp of run end
@@ -190,6 +195,7 @@ def build_run_summary(
         Dict ready for JSON serialization
     """
     return {
+        "agg_type": agg_type,
         "run_id": run_id,
         "started_at": started_at,
         "ended_at": ended_at,
