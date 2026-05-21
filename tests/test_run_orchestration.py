@@ -996,10 +996,7 @@ exclude_from_rollup = ["*_stats"]
                 record, "agg_type"
             ), "Log record should have agg_type in extra dict"
             assert record.agg_type == "qa", "agg_type should be 'qa'"
-            # run_id defaults to today's ISO date
-            from datetime import date as date_cls
-
-            expected_run_id = date_cls.today().isoformat()
+            expected_run_id = date.today().isoformat()
             assert (
                 record.run_id == expected_run_id
             ), f"run_id should be {expected_run_id}, got {record.run_id}"
