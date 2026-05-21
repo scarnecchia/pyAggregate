@@ -65,12 +65,16 @@ def resolve_inputs(
 
         if agg_config.subdirectory:
             tables = glob_subdirectory_tables(msoc_path, agg_config.subdirectory)
+            input_path = msoc_path / agg_config.subdirectory
         else:
             tables = glob_tables(msoc_path)
+            input_path = msoc_path
 
-        # Add (table_name, dpid, wpid, msoc_path, reqtype) tuples
+        # Add (table_name, dpid, wpid, input_path, reqtype) tuples.
+        # input_path is the directory the reader will join the table filename onto,
+        # so for snapshot agg types it must include the subdirectory.
         for table_name in tables:
-            table_listings.append((table_name, dpid, wpid, msoc_path, reqtype))
+            table_listings.append((table_name, dpid, wpid, input_path, reqtype))
 
     # Group by table name
     result = group_inputs_by_table(table_listings)
