@@ -9,7 +9,7 @@ in `core/`. Every function here is an Imperative Shell adapter.
 ## Contracts
 
 ### writer.py
-- **`write_run(output_path, agg_type, run_id, ...)`**: Writes parquet to `output_path/<run_id>/<output_type>/`. `output_path` comes from `AggTypeConfig.output_path` (per-agg, not a global root). Uses atomic temp-then-rename for all files including the `latest` symlink.
+- **`write_run(output_path, agg_type, run_id, ...)`**: Writes parquet to `output_path/<run_id>/<output_type>/`. `output_path` comes from `AggTypeConfig.output_path` (per-agg, not a global root). Uses run-level atomic directory rename: all files are written to a staging directory (`.tmp_<run_id>`), then the entire directory is atomically renamed to `<run_id>`. The `latest` symlink is also updated atomically via temp-symlink-then-rename.
 - **`check_run_exists(output_path, run_id)`**: Two-arg signature. No `agg_type` parameter -- the agg-type nesting is handled by the config-level `output_path`.
 - **`build_run_summary(agg_type, run_id, ...)`**: `agg_type` is the first positional arg. Returns dict for JSON serialization.
 - **Guarantees**: No partial writes visible (atomic rename). `dpid_map.csv` filtered to only surrogates present in masked outputs. `run_summary.json` always written.
@@ -34,9 +34,9 @@ in `core/`. Every function here is an Imperative Shell adapter.
 
 ## Key Decisions
 - Per-agg output_path (not global output_root): Allows different agg types to write to different mount points. Output directory layout is `output_path/<run_id>/` not `output_root/<agg_type>/<run_id>/`.
-- Atomic writes via temp-rename: Prevents consumers from reading partial files.
+- Run-level atomic writes via staging directory: Entire run is written to `.tmp_<run_id>` then renamed to `<run_id>`. Consumers never see a partially-written run directory.
 
 ## Invariants
-- All file writes use temp-then-rename (no direct writes to final paths)
+- Run directories appear atomically (staging dir rename, not per-file temp-rename)
 - `latest` symlink always points to a relative run_id (not absolute path)
 - dpid_map.csv only contains surrogates that appear in masked outputs

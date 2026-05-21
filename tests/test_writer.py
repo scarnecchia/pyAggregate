@@ -88,8 +88,8 @@ def test_write_run_creates_directory_structure(tmp_path, table_outputs, dpid_map
     assert (output_path / "2026-05-14" / "rollup").exists()
 
 
-def test_write_run_no_tmp_files_survive(tmp_path, table_outputs, dpid_map):
-    """Test AC3.6: After write, no .tmp files exist."""
+def test_write_run_no_staging_dir_survives(tmp_path, table_outputs, dpid_map):
+    """Test AC3.6: After write, no staging directory or .tmp files exist."""
     output_path = tmp_path / "outputs" / "qa"
 
     write_run(
@@ -101,7 +101,11 @@ def test_write_run_no_tmp_files_survive(tmp_path, table_outputs, dpid_map):
         update_latest=False,
     )
 
-    # Verify no .tmp files exist
+    # No staging directory should remain
+    staging_dir = output_path / ".tmp_2026-05-14"
+    assert not staging_dir.exists(), f"Staging dir still exists: {staging_dir}"
+
+    # No .tmp files should exist
     tmp_files = list(output_path.rglob("*.tmp"))
     assert len(tmp_files) == 0, f"Found .tmp files: {tmp_files}"
 
@@ -334,20 +338,18 @@ def test_check_run_exists_returns_false(tmp_path):
     assert check_run_exists(output_path, "2026-05-14") is False
 
 
-def test_write_run_cleans_orphaned_tmp_files(tmp_path, table_outputs, dpid_map):
-    """Test that orphaned .tmp files from previous runs are cleaned up."""
+def test_write_run_cleans_leftover_staging_dir(tmp_path, table_outputs, dpid_map):
+    """Test that a leftover staging directory from an interrupted run is cleaned up."""
     output_path = tmp_path / "outputs" / "qa"
-    run_dir = output_path / "2026-05-14"
+    staging_dir = output_path / ".tmp_2026-05-14"
 
-    # Create orphaned tmp file
-    run_dir.mkdir(parents=True, exist_ok=True)
-    orphaned_tmp = run_dir / "stacked" / "orphaned.tmp"
-    orphaned_tmp.parent.mkdir(parents=True, exist_ok=True)
-    orphaned_tmp.write_text("orphaned")
+    # Create leftover staging directory with junk
+    staging_dir.mkdir(parents=True, exist_ok=True)
+    (staging_dir / "stacked").mkdir()
+    (staging_dir / "stacked" / "orphaned.parquet").write_text("junk")
 
-    assert orphaned_tmp.exists()
+    assert staging_dir.exists()
 
-    # Write run
     write_run(
         output_path=output_path,
         agg_type="qa",
@@ -357,10 +359,11 @@ def test_write_run_cleans_orphaned_tmp_files(tmp_path, table_outputs, dpid_map):
         update_latest=False,
     )
 
-    # Orphaned tmp should be gone
-    assert not orphaned_tmp.exists()
+    # Staging dir should have been promoted to final dir
+    assert not staging_dir.exists()
 
-    # But real files should exist
+    # Final run dir should exist with real files
+    run_dir = output_path / "2026-05-14"
     assert (run_dir / "stacked" / "ae.parquet").exists()
 
 

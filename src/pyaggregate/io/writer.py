@@ -4,6 +4,7 @@
 import json
 import logging
 import os
+import shutil
 import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
@@ -27,12 +28,11 @@ def write_run(
     tables_skipped: list[dict] | None = None,
     table_inputs_dict: dict[str, list[TableInput]] | None = None,
 ) -> None:
-    """Write aggregation outputs to disk with atomic temp-rename pattern.
+    """Write aggregation outputs to disk with run-level atomic directory rename.
 
-    Writes parquet files to output_path/<run_id>/<output_type>/
-    using temp-then-rename for atomicity. Creates dpid_map.csv filtered to
-    surrogates actually used in masked outputs. Manages latest symlink atomically.
-    Includes aggregation-time failures in run_summary.json.
+    All files are written into a staging directory (.tmp_<run_id>), then the
+    entire directory is atomically renamed to <run_id>. Downstream consumers
+    never see a partially-written run directory.
 
     Args:
         output_path: Per-agg output directory (from config agg_config.output_path)
@@ -47,17 +47,19 @@ def write_run(
     if tables_skipped is None:
         tables_skipped = []
 
-    run_dir = output_path / run_id
-    run_dir.mkdir(parents=True, exist_ok=True)
+    final_dir = output_path / run_id
+    staging_dir = output_path / f".tmp_{run_id}"
 
-    # Clean up orphaned .tmp files from previous interrupted runs
-    for tmp_file in run_dir.rglob("*.tmp"):
-        logger.info("Removing orphaned tmp file: %s", tmp_file)
-        tmp_file.unlink()
+    # Clean up any leftover staging directory from a previous interrupted run
+    if staging_dir.exists():
+        logger.info("removing leftover staging directory: %s", staging_dir)
+        shutil.rmtree(staging_dir)
+
+    staging_dir.mkdir(parents=True, exist_ok=True)
 
     started_at = datetime.now(UTC).isoformat()
     tables_succeeded: list[str] = []
-    cli_skipped = tables_skipped  # Preserve CLI-provided skipped tables
+    cli_skipped = tables_skipped
     tables_skipped_from_writes: list[dict] = []
 
     # Write parquet files for each table and output type
@@ -71,17 +73,11 @@ def write_run(
                 },
             )
             for output_type, df in outputs_dict.items():
-                output_dir = run_dir / output_type
+                output_dir = staging_dir / output_type
                 output_dir.mkdir(parents=True, exist_ok=True)
 
                 parquet_file = output_dir / f"{table_name}.parquet"
-                tmp_file = output_dir / f"{table_name}.parquet.tmp"
-
-                # Write to temp file first
-                df.write_parquet(str(tmp_file))
-
-                # Atomic rename
-                os.rename(str(tmp_file), str(parquet_file))
+                df.write_parquet(str(parquet_file))
 
             tables_succeeded.append(table_name)
         except Exception as e:
@@ -100,19 +96,15 @@ def write_run(
     # Filter dpid_map using pure function
     filtered_map = filter_dpid_map(dpid_map_frame, table_outputs)
 
-    # Write dpid_map.csv via temp-then-rename
-    dpid_map_path = run_dir / "dpid_map.csv"
-    dpid_map_tmp = run_dir / "dpid_map.csv.tmp"
-    filtered_map.write_csv(str(dpid_map_tmp))
-    os.rename(str(dpid_map_tmp), str(dpid_map_path))
+    # Write dpid_map.csv
+    dpid_map_path = staging_dir / "dpid_map.csv"
+    filtered_map.write_csv(str(dpid_map_path))
 
     # Collect and write manifest.json from post-write inspection
-    manifest = collect_manifest(run_dir, agg_type, run_id, table_inputs_dict)
-    manifest_path = run_dir / "manifest.json"
-    manifest_tmp = run_dir / "manifest.json.tmp"
-    with open(manifest_tmp, "w") as f:
+    manifest = collect_manifest(staging_dir, agg_type, run_id, table_inputs_dict)
+    manifest_path = staging_dir / "manifest.json"
+    with open(manifest_path, "w") as f:
         json.dump(manifest, f, indent=2, sort_keys=True)
-    os.rename(str(manifest_tmp), str(manifest_path))
 
     # Write run_summary.json using pure function
     ended_at = datetime.now(UTC).isoformat()
@@ -128,21 +120,28 @@ def write_run(
         exit_code=exit_code,
     )
 
-    summary_path = run_dir / "run_summary.json"
-    summary_tmp = run_dir / "run_summary.json.tmp"
-    with open(summary_tmp, "w") as f:
+    summary_path = staging_dir / "run_summary.json"
+    with open(summary_path, "w") as f:
         json.dump(summary, f, indent=2)
-    os.rename(str(summary_tmp), str(summary_path))
+
+    # Atomic promotion: rename staging dir to final run dir
+    # If --force was used, the final dir may already exist
+    if final_dir.exists():
+        shutil.rmtree(final_dir)
+
+    os.rename(str(staging_dir), str(final_dir))
+
+    logger.info(
+        "run directory promoted",
+        extra={"run_id": run_id, "path": str(final_dir)},
+    )
 
     # Update latest symlink if requested
     if update_latest:
         latest_path = output_path / "latest"
         latest_tmp = output_path / f"latest.{tempfile.gettempprefix()}{os.getpid()}"
 
-        # Create symlink to temp name (relative path to run_id)
         os.symlink(run_id, str(latest_tmp))
-
-        # Atomic rename to final path
         os.rename(str(latest_tmp), str(latest_path))
 
         logger.info(

@@ -1,4 +1,5 @@
-# pattern: Mixed (Orchestration: aggregate_table; Pure: reconcile_schemas, stack_frames, compute_rollup, should_exclude_rollup)
+# pattern: Mixed (Orchestration: aggregate_table;
+#   Pure: reconcile_schemas, stack_frames, compute_rollup, should_exclude_rollup)
 """Pipeline orchestration for stacked, masked, and rollup aggregation outputs."""
 
 import fnmatch
@@ -81,19 +82,32 @@ def compute_rollup(
     return result
 
 
-def reconcile_schemas(frames: list[pl.DataFrame]) -> list[pl.DataFrame]:
-    """Detect and resolve type conflicts and structural drift across frames.
+def _resolve_target_type(types: set[pl.DataType]) -> pl.DataType:
+    """Determine safest common upcast type for a set of conflicting column types."""
+    has_float = any(t.is_float() for t in types)
+    has_int = any(t.is_integer() for t in types)
 
-    Type conflicts are resolved by upcasting: Int→Int64, mixed int/float→Float64,
-    otherwise→Utf8. Structural drift (missing columns) is logged as a warning;
-    pl.concat(how="diagonal") handles the actual null-fill.
+    if has_float:
+        return pl.Float64()
+    if has_int:
+        return pl.Int64()
+    return pl.Utf8()
+
+
+def reconcile_schemas(frames: list[pl.LazyFrame]) -> list[pl.LazyFrame]:
+    """Detect and resolve type conflicts and structural drift across lazy frames.
+
+    Inspects schemas without collecting. Type conflicts are resolved by upcasting:
+    Int→Int64, mixed int/float→Float64, otherwise→Utf8. Structural drift (missing
+    columns) is logged as a warning; pl.concat(how="diagonal") handles the null-fill.
     """
     if not frames:
         return frames
 
     column_types: dict[str, set[pl.DataType]] = {}
     for frame in frames:
-        for col_name, col_type in zip(frame.columns, frame.schema.values(), strict=False):
+        schema = frame.collect_schema()
+        for col_name, col_type in schema.items():
             if col_name not in column_types:
                 column_types[col_name] = set()
             column_types[col_name].add(col_type)
@@ -108,29 +122,21 @@ def reconcile_schemas(frames: list[pl.DataFrame]) -> list[pl.DataFrame]:
                 f"upcasting to safest common type."
             )
 
-            has_float = any("Float" in str(t) for t in types)
-            has_int = any("Int" in str(t) for t in types)
-
-            if has_float:
-                target_type: pl.DataType = pl.Float64()
-            elif has_int:
-                target_type = pl.Int64()
-            else:
-                target_type = pl.Utf8()
+            target_type = _resolve_target_type(types)
 
             frames = [
                 frame.with_columns(pl.col(col_name).cast(target_type))
-                if col_name in frame.columns
+                if col_name in frame.collect_schema()
                 else frame
                 for frame in frames
             ]
 
     all_columns: set[str] = set()
     for frame in frames:
-        all_columns.update(frame.columns)
+        all_columns.update(frame.collect_schema().names())
 
     for frame in frames:
-        missing_cols = all_columns - set(frame.columns)
+        missing_cols = all_columns - set(frame.collect_schema().names())
         if missing_cols:
             logger.warning(
                 f"structural drift detected: frame missing columns {sorted(missing_cols)}. "
@@ -145,14 +151,17 @@ def stack_frames(
     table_name: str,
     reader_fn: Callable[[object, str, str], pl.LazyFrame],
 ) -> pl.DataFrame:
-    """Read, reconcile, and concatenate frames from multiple data partners."""
+    """Read, reconcile, and concatenate frames from multiple data partners.
+
+    Schema reconciliation happens on lazy plans (no collection). Only the final
+    concat triggers materialisation.
+    """
     lazy_frames = [
         reader_fn(ti.msoc_path, table_name, ti.dpid)
         for ti in table_inputs
     ]
-    frames = [lf.collect() for lf in lazy_frames]
-    frames = reconcile_schemas(frames)
-    return pl.concat(frames, how="diagonal")
+    lazy_frames = reconcile_schemas(lazy_frames)
+    return pl.concat(lazy_frames, how="diagonal").collect()
 
 
 def aggregate_table(
