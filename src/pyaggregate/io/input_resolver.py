@@ -36,7 +36,7 @@ def resolve_inputs(
     Raises:
         ValueError: If source_field is set but subdirectory is None
     """
-    # Validate: SDD agg types with source_field require subdirectory
+    # Validate: snapshot agg types with source_field require subdirectory
     if agg_config.source_field is not None and agg_config.subdirectory is None:
         raise ValueError(
             "source_field requires subdirectory to be set in agg_config"

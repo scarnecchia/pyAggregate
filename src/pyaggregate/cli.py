@@ -134,7 +134,7 @@ def run(
     force: bool = typer.Option(False, help="Overwrite existing run directory"),
     config: Path | None = CONFIG_OPTION,
 ) -> None:
-    """Produce aggregated parquet outputs for QA, QM, and/or SDD."""
+    """Produce aggregated parquet outputs for QA, QM, and/or SCDM Snapshot."""
     try:
         from datetime import date
 

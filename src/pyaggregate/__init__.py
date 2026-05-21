@@ -1,1 +1,1 @@
-"""pyaggregate — unified QA, QM, and SDD aggregation CLI."""
+"""pyaggregate — unified QA, QM, and SCDM Snapshot aggregation CLI."""
