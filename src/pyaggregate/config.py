@@ -26,6 +26,7 @@ class AggTypeConfig:
     source_field: str | None = None
     subdirectory: str | None = None
     exclude_from_rollup: tuple[str, ...] = ()
+    allowed_dpids: tuple[str, ...] = ("*",)
     table_overrides: MappingProxyType[str, TableOverride] = field(
         default_factory=lambda: MappingProxyType({})
     )
