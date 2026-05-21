@@ -124,7 +124,9 @@ def scan(
 
 @app.command()
 def run(
-    type: list[str] = typer.Option(None, "--type", help="Aggregation type(s) to run"),
+    type: list[str] = typer.Option(
+        None, "--type", help="Aggregation type(s) to run (e.g., qa, qm, snapshot)"
+    ),
     catalog: Path | None = typer.Option(None, help="Path to alternate catalog db"),
     run_id: str | None = typer.Option(None, help="Custom run ID (default: today's date)"),
     update_latest: bool = typer.Option(

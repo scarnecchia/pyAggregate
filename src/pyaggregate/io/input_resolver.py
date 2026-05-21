@@ -12,7 +12,7 @@ from pyaggregate.core.input_resolution import (
     group_inputs_by_table,
     select_latest_workplan_per_dp,
 )
-from pyaggregate.io.sas_reader import glob_scdm_tables, glob_tables
+from pyaggregate.io.sas_reader import glob_subdirectory_tables, glob_tables
 
 
 def resolve_inputs(
@@ -63,8 +63,10 @@ def resolve_inputs(
 
         msoc_path = Path(msoc_path_str)
 
-        # Choose glob strategy based on agg_config
-        tables = glob_scdm_tables(msoc_path) if agg_config.subdirectory else glob_tables(msoc_path)
+        if agg_config.subdirectory:
+            tables = glob_subdirectory_tables(msoc_path, agg_config.subdirectory)
+        else:
+            tables = glob_tables(msoc_path)
 
         # Add (table_name, dpid, wpid, msoc_path, reqtype) tuples
         for table_name in tables:

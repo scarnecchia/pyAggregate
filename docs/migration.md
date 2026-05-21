@@ -281,7 +281,7 @@ Small row count differences may be acceptable if due to known data handling diff
 - [ ] Row counts match exactly (or documented difference is acceptable)
 - [ ] Numeric values match (within 1e-6 for floating-point)
 - [ ] Summary statistics match (min, max, mean, sum)
-- [ ] All three agg types (QA, QM, SDD) are consistent
+- [ ] All three agg types (QA, QM, SCDM Snapshot) are consistent
 - [ ] Run completed without errors (check exit code and logs)
 - [ ] dpid_map.csv contains all expected data partners
 - [ ] No `.tmp` files left behind

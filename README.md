@@ -24,7 +24,7 @@ pyaggregate init-db
 # Scan for latest approved submissions
 pyaggregate scan
 
-# Run all aggregations (qa, qm, sdd)
+# Run all aggregations (qa, qm, snapshot)
 pyaggregate run
 
 # Run a single aggregation type

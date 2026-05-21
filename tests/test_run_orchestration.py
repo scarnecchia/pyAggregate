@@ -172,7 +172,7 @@ def mock_patches():
         patch("pyaggregate.io.sas_reader.read_table") as mock_read,
         patch("pyaggregate.core.pipeline.aggregate_table") as mock_agg,
         patch("pyaggregate.io.input_resolver.glob_tables") as mock_glob_qa_input,
-        patch("pyaggregate.io.input_resolver.glob_scdm_tables") as mock_glob_scdm,
+        patch("pyaggregate.io.input_resolver.glob_subdirectory_tables") as mock_glob_scdm,
     ):
         mock_read.return_value = pl.DataFrame({"col": [1]})
 

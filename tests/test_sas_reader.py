@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import polars as pl
 
 from pyaggregate.io.sas_reader import (
-    glob_scdm_tables,
+    glob_subdirectory_tables,
     glob_tables,
     read_metadata,
     read_table,
@@ -189,11 +189,11 @@ class TestGlobTables:
         assert result == []
 
 
-class TestGlobScdmTables:
-    """Tests for glob_scdm_tables function."""
+class TestGlobSubdirectoryTables:
+    """Tests for glob_subdirectory_tables function."""
 
-    def test_glob_scdm_tables_lists_scdm_files(self, tmp_path: Path) -> None:
-        """glob_scdm_tables lists .sas7bdat files in scdm_snapshot."""
+    def test_lists_files_in_subdirectory(self, tmp_path: Path) -> None:
+        """glob_subdirectory_tables lists .sas7bdat files in named subdirectory."""
         msoc_path = tmp_path / "msoc"
         scdm_dir = msoc_path / "scdm_snapshot"
         scdm_dir.mkdir(parents=True)
@@ -201,12 +201,12 @@ class TestGlobScdmTables:
         (scdm_dir / "Patient.sas7bdat").touch()
         (scdm_dir / "Diagnosis.sas7bdat").touch()
 
-        result = glob_scdm_tables(msoc_path)
+        result = glob_subdirectory_tables(msoc_path, "scdm_snapshot")
 
         assert sorted(result) == ["Diagnosis", "Patient"]
 
-    def test_glob_scdm_tables_excludes_other_files(self, tmp_path: Path) -> None:
-        """glob_scdm_tables ignores non-.sas7bdat files."""
+    def test_excludes_non_sas_files(self, tmp_path: Path) -> None:
+        """glob_subdirectory_tables ignores non-.sas7bdat files."""
         msoc_path = tmp_path / "msoc"
         scdm_dir = msoc_path / "scdm_snapshot"
         scdm_dir.mkdir(parents=True)
@@ -215,15 +215,28 @@ class TestGlobScdmTables:
         (scdm_dir / "README.txt").touch()
         (scdm_dir / "metadata.json").touch()
 
-        result = glob_scdm_tables(msoc_path)
+        result = glob_subdirectory_tables(msoc_path, "scdm_snapshot")
 
         assert result == ["Patient"]
 
-    def test_glob_scdm_tables_empty_scdm(self, tmp_path: Path) -> None:
-        """glob_scdm_tables returns empty list if scdm_snapshot missing."""
+    def test_returns_empty_when_subdirectory_missing(self, tmp_path: Path) -> None:
+        """glob_subdirectory_tables returns empty list if subdirectory doesn't exist."""
         msoc_path = tmp_path / "msoc"
         msoc_path.mkdir()
 
-        result = glob_scdm_tables(msoc_path)
+        result = glob_subdirectory_tables(msoc_path, "scdm_snapshot")
 
         assert result == []
+
+    def test_works_with_arbitrary_subdirectory_name(self, tmp_path: Path) -> None:
+        """glob_subdirectory_tables works with any subdirectory name, not just scdm_snapshot."""
+        msoc_path = tmp_path / "msoc"
+        custom_dir = msoc_path / "custom_subdir"
+        custom_dir.mkdir(parents=True)
+
+        (custom_dir / "Table_A.sas7bdat").touch()
+        (custom_dir / "Table_B.sas7bdat").touch()
+
+        result = glob_subdirectory_tables(msoc_path, "custom_subdir")
+
+        assert sorted(result) == ["Table_A", "Table_B"]

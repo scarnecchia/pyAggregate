@@ -435,7 +435,7 @@ class TestResolveInputs:
             subdirectory="scdm_snapshot",
         )
 
-        with patch("pyaggregate.io.input_resolver.glob_scdm_tables") as mock_glob:
+        with patch("pyaggregate.io.input_resolver.glob_subdirectory_tables") as mock_glob:
             mock_glob.return_value = ["patient"]
 
             result = resolve_inputs(catalog, agg_config)

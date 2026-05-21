@@ -104,22 +104,23 @@ def glob_tables(
     return sorted(tables)
 
 
-def glob_scdm_tables(msoc_path: Path) -> list[str]:
-    """List .sas7bdat table names under msoc_path/scdm_snapshot/.
+def glob_subdirectory_tables(msoc_path: Path, subdirectory: str) -> list[str]:
+    """List .sas7bdat table names under msoc_path/{subdirectory}/.
 
     Args:
         msoc_path: Path to msoc directory
+        subdirectory: Name of subdirectory to glob within
 
     Returns:
-        List of table names in scdm_snapshot (sorted)
+        List of table names (sorted)
     """
-    scdm_dir = msoc_path / "scdm_snapshot"
+    subdir = msoc_path / subdirectory
 
-    if not scdm_dir.exists():
+    if not subdir.exists():
         return []
 
     tables = []
-    for sas_file in scdm_dir.glob("*.sas7bdat"):
+    for sas_file in subdir.glob("*.sas7bdat"):
         tables.append(sas_file.stem)
 
     return sorted(tables)
