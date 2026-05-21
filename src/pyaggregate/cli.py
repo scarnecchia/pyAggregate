@@ -4,12 +4,23 @@
 import logging
 from pathlib import Path
 
+import polars as pl
 import typer
 
 from pyaggregate.config import load_config, resolve_config_path
 from pyaggregate.io.catalog_store import CatalogStore
 from pyaggregate.io.scanner import run_scan, run_scan_dry
 from pyaggregate.log_config import configure_logging
+
+
+def _wide_repr() -> pl.Config:
+    """Polars Config context manager that disables row/col/string truncation for show-* commands."""
+    return pl.Config(
+        tbl_rows=-1,
+        tbl_cols=-1,
+        fmt_str_lengths=200,
+        tbl_width_chars=-1,
+    )
 
 app = typer.Typer(
     name="pyaggregate",
@@ -195,6 +206,22 @@ def run(
                 typer.echo(f"warning: no inputs found for {agg_type}")
                 continue
 
+            run_logger = logging.getLogger("pyaggregate.run.inputs")
+            for table_name, table_inputs_list in table_inputs_dict.items():
+                for ti in table_inputs_list:
+                    run_logger.info(
+                        "resolved input",
+                        extra={
+                            "run_id": run_id,
+                            "agg_type": agg_type,
+                            "table": table_name,
+                            "dpid": ti.dpid,
+                            "wpid": ti.wpid,
+                            "reqtype": ti.reqtype,
+                            "msoc_path": str(ti.msoc_path),
+                        },
+                    )
+
             # Aggregate each table
             table_outputs: dict[str, dict[str, object]] = {}
             tables_skipped: list[dict] = []
@@ -309,7 +336,8 @@ def show_catalog(
         with CatalogStore(db_path) as store:
             df = store.snapshot_catalog()
 
-        print(df)
+        with _wide_repr():
+            print(df)
     except Exception as e:
         typer.echo(f"failed to display catalog: {e}", err=True)
         raise typer.Exit(code=1) from e
@@ -335,7 +363,8 @@ def show_dpid_map(
         with CatalogStore(db_path) as store:
             df = store.snapshot_dpid_map()
 
-        print(df)
+        with _wide_repr():
+            print(df)
     except Exception as e:
         typer.echo(f"failed to display dpid_map: {e}", err=True)
         raise typer.Exit(code=1) from e
@@ -361,7 +390,8 @@ def show_scans(
         with CatalogStore(db_path) as store:
             df = store.snapshot_scan_log()
 
-        print(df)
+        with _wide_repr():
+            print(df)
     except Exception as e:
         typer.echo(f"failed to display scans: {e}", err=True)
         raise typer.Exit(code=1) from e
