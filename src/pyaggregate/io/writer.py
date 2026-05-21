@@ -24,6 +24,7 @@ def write_run(
     dpid_map_frame: pl.DataFrame,
     update_latest: bool,
     tables_skipped: list[dict] | None = None,
+    table_inputs_dict: dict[str, list[TableInput]] | None = None,
 ) -> None:
     """Write aggregation outputs to disk with atomic temp-rename pattern.
 
@@ -40,6 +41,7 @@ def write_run(
         dpid_map_frame: Full dpid_map DataFrame to filter
         update_latest: Whether to update the latest symlink
         tables_skipped: List of dicts with {table, error_class, detail} from CLI
+        table_inputs_dict: Resolved inputs per table from resolve_inputs()
     """
     if tables_skipped is None:
         tables_skipped = []
@@ -102,6 +104,14 @@ def write_run(
     dpid_map_tmp = run_dir / "dpid_map.csv.tmp"
     filtered_map.write_csv(str(dpid_map_tmp))
     os.rename(str(dpid_map_tmp), str(dpid_map_path))
+
+    # Collect and write manifest.json from post-write inspection
+    manifest = collect_manifest(run_dir, agg_type, run_id, table_inputs_dict)
+    manifest_path = run_dir / "manifest.json"
+    manifest_tmp = run_dir / "manifest.json.tmp"
+    with open(manifest_tmp, "w") as f:
+        json.dump(manifest, f, indent=2, sort_keys=True)
+    os.rename(str(manifest_tmp), str(manifest_path))
 
     # Write run_summary.json using pure function
     ended_at = datetime.now(UTC).isoformat()

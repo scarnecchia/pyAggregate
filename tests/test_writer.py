@@ -873,3 +873,118 @@ class TestCollectManifest:
         assert manifest["inputs"] == {}
         # But tables should still be populated from disk
         assert len(manifest["tables"]) > 0
+
+
+class TestManifestIntegration:
+    """Tests for manifest.json writing via write_run."""
+
+    def test_manifest_json_created_after_successful_run(self, tmp_path, table_outputs, dpid_map) -> None:
+        """Test AC1.1: Every successful run produces manifest.json in the run directory."""
+        output_path = tmp_path / "outputs" / "qa"
+
+        write_run(
+            output_path=output_path,
+            agg_type="qa",
+            run_id="2026-05-14",
+            table_outputs=table_outputs,
+            dpid_map_frame=dpid_map,
+            update_latest=False,
+        )
+
+        manifest_path = output_path / "2026-05-14" / "manifest.json"
+        assert manifest_path.exists()
+
+        with open(manifest_path) as f:
+            manifest = json.load(f)
+        assert manifest["manifest_version"] == 1
+        assert len(manifest["tables"]) > 0
+
+    def test_manifest_json_created_with_skipped_tables(self, tmp_path, table_outputs, dpid_map) -> None:
+        """Test AC1.2: Partial failure runs (exit 2) also produce manifest.json."""
+        output_path = tmp_path / "outputs" / "qa"
+
+        tables_skipped = [
+            {
+                "table": "bad_table",
+                "error_class": "parse_error",
+                "detail": "ValueError: invalid column",
+            }
+        ]
+
+        write_run(
+            output_path=output_path,
+            agg_type="qa",
+            run_id="2026-05-14",
+            table_outputs=table_outputs,
+            dpid_map_frame=dpid_map,
+            update_latest=False,
+            tables_skipped=tables_skipped,
+        )
+
+        manifest_path = output_path / "2026-05-14" / "manifest.json"
+        assert manifest_path.exists()
+
+        with open(manifest_path) as f:
+            manifest = json.load(f)
+        assert manifest["manifest_version"] == 1
+
+    def test_manifest_json_atomic_write(self, tmp_path, table_outputs, dpid_map) -> None:
+        """Test AC1.3: manifest.json is written atomically (no manifest.json.tmp survives)."""
+        output_path = tmp_path / "outputs" / "qa"
+
+        write_run(
+            output_path=output_path,
+            agg_type="qa",
+            run_id="2026-05-14",
+            table_outputs=table_outputs,
+            dpid_map_frame=dpid_map,
+            update_latest=False,
+        )
+
+        run_dir = output_path / "2026-05-14"
+        # Verify manifest.json exists
+        assert (run_dir / "manifest.json").exists()
+        # Verify no manifest.json.tmp survives
+        assert not (run_dir / "manifest.json.tmp").exists()
+
+    def test_manifest_json_with_input_provenance(self, tmp_path, table_outputs, dpid_map) -> None:
+        """Test that manifest.json includes input provenance when provided."""
+        output_path = tmp_path / "outputs" / "qa"
+
+        table_inputs_dict = {
+            "ae": [
+                TableInput(
+                    dpid="aeos",
+                    wpid="wp001",
+                    msoc_path=Path("/data/msoc/aeos"),
+                    reqtype="REQUEST",
+                ),
+            ],
+            "ae_stats": [
+                TableInput(
+                    dpid="cms",
+                    wpid="wp002",
+                    msoc_path=Path("/data/msoc/cms"),
+                    reqtype="REQUEST",
+                ),
+            ],
+        }
+
+        write_run(
+            output_path=output_path,
+            agg_type="qa",
+            run_id="2026-05-14",
+            table_outputs=table_outputs,
+            dpid_map_frame=dpid_map,
+            update_latest=False,
+            table_inputs_dict=table_inputs_dict,
+        )
+
+        manifest_path = output_path / "2026-05-14" / "manifest.json"
+        with open(manifest_path) as f:
+            manifest = json.load(f)
+
+        assert "ae" in manifest["inputs"]
+        assert "ae_stats" in manifest["inputs"]
+        assert manifest["inputs"]["ae"][0]["dpid"] == "aeos"
+        assert manifest["inputs"]["ae_stats"][0]["dpid"] == "cms"
