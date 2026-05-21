@@ -674,6 +674,29 @@ exclude_from_rollup = ["*_stats"]
                 # Should have kpsc (dp_001 in alternate catalog)
                 assert len(surrogates) > 0
 
+    def test_run_output_root_flag_rejected_ac4_3(
+        self,
+        cli_runner: CliRunner,
+        test_config: tuple[Path, AppConfig],
+    ) -> None:
+        """AC4.3: --output-root is no longer a recognized CLI option."""
+        config_file, config = test_config
+
+        result = cli_runner.invoke(
+            app,
+            [
+                "run",
+                "--type",
+                "qa",
+                "--output-root",
+                "/some/path",
+                "--config",
+                str(config_file),
+            ],
+        )
+
+        assert result.exit_code != 0
+
     def test_run_no_update_latest_with_preexisting_symlink_ac4_3(
         self,
         cli_runner: CliRunner,
