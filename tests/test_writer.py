@@ -1025,3 +1025,46 @@ class TestManifestIntegration:
         assert "ae_stats" in manifest["inputs"]
         assert manifest["inputs"]["ae"][0]["dpid"] == "aeos"
         assert manifest["inputs"]["ae_stats"][0]["dpid"] == "cms"
+
+
+def test_byte_identical_manifests_from_identical_inputs(tmp_path, table_outputs, dpid_map):
+    """Test AC5.3: Two runs with identical data produce byte-identical manifests.
+
+    Proves end-to-end determinism: dict construction, key sorting, and JSON serialization
+    all produce identical bytes across separate runs with the same inputs.
+    """
+    # Create two separate output directories
+    output_path_a = tmp_path / "run_a"
+    output_path_b = tmp_path / "run_b"
+
+    # Run write_run twice with identical inputs into different paths
+    write_run(
+        output_path=output_path_a,
+        agg_type="qa",
+        run_id="2026-05-14",
+        table_outputs=table_outputs,
+        dpid_map_frame=dpid_map,
+        update_latest=False,
+    )
+
+    write_run(
+        output_path=output_path_b,
+        agg_type="qa",
+        run_id="2026-05-14",
+        table_outputs=table_outputs,
+        dpid_map_frame=dpid_map,
+        update_latest=False,
+    )
+
+    # Read manifest.json files as raw strings
+    manifest_path_a = output_path_a / "2026-05-14" / "manifest.json"
+    manifest_path_b = output_path_b / "2026-05-14" / "manifest.json"
+
+    assert manifest_path_a.exists()
+    assert manifest_path_b.exists()
+
+    manifest_bytes_a = manifest_path_a.read_text(encoding="utf-8")
+    manifest_bytes_b = manifest_path_b.read_text(encoding="utf-8")
+
+    # Assert byte-identical
+    assert manifest_bytes_a == manifest_bytes_b
