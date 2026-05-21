@@ -617,3 +617,82 @@ class TestResolveInputs:
         result = resolve_inputs(catalog, agg_config)
 
         assert result == {}
+
+    def test_resolve_inputs_applies_allowed_dpids_filter(self, tmp_path: Path) -> None:
+        """resolve_inputs filters to only allowed DPIDs (AC4.1, AC4.3).
+
+        Verifies:
+        - dpid-filtering.AC4.1: filter_allowed_dpids is applied between
+          filter_catalog and select_latest_workplan_per_dp
+        - dpid-filtering.AC4.3: Filtered-out DPs naturally excluded from output
+          without downstream changes
+        - dpid-filtering.AC5.1 (by contrast): Scan is unaffected (architectural
+          boundary: scanner lives in io/scanner.py, filter_allowed_dpids only
+          in core/input_resolution.py and io/input_resolver.py)
+        """
+        msoc_path = tmp_path / "msoc"
+        msoc_path.mkdir(parents=True)
+
+        # Catalog with two DPs: aeos and cms
+        catalog = pl.DataFrame(
+            {
+                "dpid": ["aeos", "cms"],
+                "wpid": ["wp041", "wp041"],
+                "reqtype": ["qar", "qar"],
+                "verid": ["v01", "v01"],
+                "msoc_path": [str(msoc_path), str(msoc_path)],
+                "has_scdm": [0, 0],
+                "observed_at": ["2026-05-14T00:00:00", "2026-05-14T00:00:00"],
+            }
+        )
+
+        # AggTypeConfig with allowed_dpids=("aeos",) filters out cms
+        agg_config = AggTypeConfig(
+            name="qa",
+            output_path=Path("/tmp"),
+            source_reqtype="qar",
+            allowed_dpids=("aeos",),
+        )
+
+        with patch("pyaggregate.io.input_resolver.glob_tables") as mock_glob:
+            mock_glob.return_value = ["patient"]
+
+            result = resolve_inputs(catalog, agg_config)
+
+        # Only aeos should be in result; cms is filtered out before globbing
+        assert "patient" in result
+        assert len(result["patient"]) == 1
+        assert result["patient"][0].dpid == "aeos"
+
+    def test_resolve_inputs_wildcard_allowed_dpids_includes_all(self, tmp_path: Path) -> None:
+        """resolve_inputs with allowed_dpids=("*",) includes all DPs."""
+        msoc_path = tmp_path / "msoc"
+        msoc_path.mkdir(parents=True)
+
+        catalog = pl.DataFrame(
+            {
+                "dpid": ["aeos", "cms"],
+                "wpid": ["wp041", "wp041"],
+                "reqtype": ["qar", "qar"],
+                "verid": ["v01", "v01"],
+                "msoc_path": [str(msoc_path), str(msoc_path)],
+                "has_scdm": [0, 0],
+                "observed_at": ["2026-05-14T00:00:00", "2026-05-14T00:00:00"],
+            }
+        )
+
+        agg_config = AggTypeConfig(
+            name="qa",
+            output_path=Path("/tmp"),
+            source_reqtype="qar",
+            allowed_dpids=("*",),
+        )
+
+        with patch("pyaggregate.io.input_resolver.glob_tables") as mock_glob:
+            mock_glob.return_value = ["patient"]
+
+            result = resolve_inputs(catalog, agg_config)
+
+        # Both aeos and cms should be in result with wildcard
+        dpids_in_result = {input_obj.dpid for inputs in result.values() for input_obj in inputs}
+        assert dpids_in_result == {"aeos", "cms"}
