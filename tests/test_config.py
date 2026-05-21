@@ -282,6 +282,34 @@ output_path = 42
         with pytest.raises(ValueError, match="output_path must be a string"):
             load_config(config_file)
 
+    def test_example_config_loadable_ac6_2(self) -> None:
+        """AC6.2: pyaggregate.example.toml is loadable and complete.
+
+        Example config should always be valid and contain all required agg types
+        so users have a working reference.
+        """
+        # Locate example config relative to tests directory
+        example_config = Path(__file__).parent.parent / "pyaggregate.example.toml"
+
+        assert example_config.exists(), f"Example config not found at {example_config}"
+
+        # Should load without exception
+        config = load_config(example_config)
+
+        # Should have exactly 3 agg types
+        assert len(config.agg_types) == 3, f"Expected 3 agg types, got {len(config.agg_types)}"
+
+        # Should have the specific agg types
+        expected_types = {"qa", "qm", "snapshot"}
+        actual_types = set(config.agg_types.keys())
+        assert actual_types == expected_types, f"Expected {expected_types}, got {actual_types}"
+
+        # Verify each type is properly configured
+        for agg_type_name in expected_types:
+            agg_config = config.agg_types[agg_type_name]
+            assert agg_config.name == agg_type_name
+            assert agg_config.output_path is not None
+
 
 class TestResolveConfigPath:
     """Test config path resolution."""

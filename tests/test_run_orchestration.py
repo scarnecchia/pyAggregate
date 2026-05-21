@@ -201,7 +201,10 @@ class TestRunOrchestration:
         test_config: tuple[Path, AppConfig],
         mock_patches,
     ) -> None:
-        """AC3.7: --type qa --type snapshot produces only qa and snapshot outputs, no qm directory."""
+        """AC3.7: --type qa --type snapshot produces only qa and snapshot outputs, no qm directory.
+
+        AC3.3: Symlinks are independent per agg type (qa latest, snapshot latest, no qm latest).
+        """
         config_file, config = test_config
 
         result = cli_runner.invoke(
@@ -230,6 +233,19 @@ class TestRunOrchestration:
         # Verify qm output does NOT exist
         qm_output = config.agg_types["qm"].output_path
         assert not (qm_output / date.today().isoformat()).exists()
+
+        # AC3.3: Verify symlinks are independent per agg type
+        # qa should have its own latest symlink
+        qa_latest = config.agg_types["qa"].output_path / "latest"
+        assert qa_latest.is_symlink(), "qa latest symlink should exist"
+
+        # snapshot should have its own latest symlink
+        snapshot_latest = config.agg_types["snapshot"].output_path / "latest"
+        assert snapshot_latest.is_symlink(), "snapshot latest symlink should exist"
+
+        # qm should NOT have a latest symlink (qm was not run)
+        qm_latest = config.agg_types["qm"].output_path / "latest"
+        assert not qm_latest.exists(), "qm latest symlink should not exist (qm was not run)"
 
     def test_run_no_update_latest_flag(
         self,
@@ -811,6 +827,74 @@ exclude_from_rollup = ["*_stats"]
         assert latest_link.is_symlink()
         assert latest_link.readlink() == original_target
         assert latest_link.readlink() == Path("2026-05-14")
+
+
+    def test_run_sdd_rejected_after_rename_ac5_2(
+        self,
+        cli_runner: CliRunner,
+        tmp_path: Path,
+        mock_patches,
+    ) -> None:
+        """AC5.2: --type sdd is rejected when config only declares [agg.snapshot].
+
+        Verifies that requesting a non-existent aggregation type results in:
+        (1) non-zero exit code
+        (2) error message that mentions available types
+        """
+        # Create a minimal config with only [agg.snapshot] (no [agg.sdd])
+        catalog_db = tmp_path / "catalog.db"
+        output_root = tmp_path / "outputs"
+
+        with CatalogStore(catalog_db) as store:
+            store.init_schema()
+            store.upsert_catalog_row(
+                dpid="aeos",
+                wpid="wp041",
+                reqtype="qar",
+                verid="v01",
+                msoc_path="/data/aeos/qar",
+                has_scdm=1,
+            )
+            store.get_or_create_surrogate("aeos")
+
+        config_file = tmp_path / "snapshot_only_config.toml"
+        config_file.write_text(
+            """
+[scan]
+requests_root = "/data/requests"
+
+[state]
+catalog_db = "{}"
+log_dir = "{}"
+
+[agg.snapshot]
+source_field = "has_scdm"
+subdirectory = "scdm_snapshot"
+output_path = "{}"
+exclude_from_rollup = []
+""".format(catalog_db, tmp_path / "logs", output_root / "snapshot")
+        )
+
+        # Try to run with --type sdd (which doesn't exist in config)
+        result = cli_runner.invoke(
+            app,
+            [
+                "run",
+                "--type",
+                "sdd",
+                "--config",
+                str(config_file),
+            ],
+        )
+
+        # Should fail with non-zero exit code
+        assert result.exit_code != 0, f"Expected non-zero exit code, got {result.exit_code}. Output: {result.output}"
+
+        # Error output should mention the configured types (so user knows what's available)
+        output_text = result.output.lower()
+        assert (
+            "snapshot" in output_text or "agg" in output_text
+        ), f"Error message should mention configured aggregation types. Got: {result.output}"
 
 
 class TestClassifyException:
