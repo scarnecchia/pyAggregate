@@ -1,11 +1,11 @@
 # pyAggregate
 
-Last verified: 2026-05-20
+Last verified: 2026-05-21
 
 ## Tech Stack
 - Language: Python 3.11+
 - CLI: Typer
-- Data: Polars (parquet output, SAS7BDAT input via polars-readstat)
+- Data: Polars (parquet output, SAS7BDAT input via polars-readstat), PyArrow (parquet metadata)
 - Config: TOML (tomllib)
 - Database: SQLite (catalog store)
 - Testing: pytest, Hypothesis
@@ -44,6 +44,7 @@ Agg type identifiers: `qa`, `qm`, `snapshot` (not `sdd`).
 - Config precedence: CLI flag > PYAGGREGATE_CONFIG env var > ./pyaggregate.toml
 - Run ID defaults to today's ISO date
 - Output directory layout: `<output_path>/<run_id>/<output_type>/<table>.parquet`
+- Each run directory also contains `manifest.json` (per-run metadata: tables, columns, row counts, input provenance) and `run_summary.json`
 - `latest` symlink managed atomically per agg type
 - Exit codes: 0 = success, 1 = fatal, 2 = partial failure
 
