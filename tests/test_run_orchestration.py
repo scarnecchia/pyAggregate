@@ -83,17 +83,20 @@ log_dir = "{}"
 [agg.qa]
 source_reqtype = "qar"
 output_path = "{}"
+allowed_dpids = ["*"]
 exclude_from_rollup = ["*_stats"]
 
 [agg.qm]
 source_reqtype = "qmr"
 output_path = "{}"
+allowed_dpids = ["*"]
 exclude_from_rollup = ["*_stats"]
 
 [agg.snapshot]
 source_field = "has_scdm"
 subdirectory = "scdm_snapshot"
 output_path = "{}"
+allowed_dpids = ["*"]
 exclude_from_rollup = []
 """.format(catalog_db, tmp_path / "logs", output_root / "qa", output_root / "qm", output_root / "snapshot")
     )
@@ -655,6 +658,7 @@ log_dir = "{tmp_path / "logs"}"
 [agg.qa]
 source_reqtype = "qar"
 output_path = "{output_root / "qa"}"
+allowed_dpids = ["*"]
 exclude_from_rollup = ["*_stats"]
 """)
 

@@ -109,17 +109,20 @@ log_dir = "{state_dir / "logs"}"
 [agg.qa]
 output_path = "{output_dir / "qa"}"
 source_reqtype = "qar"
+allowed_dpids = ["*"]
 exclude_from_rollup = []
 
 [agg.qm]
 output_path = "{output_dir / "qm"}"
 source_reqtype = "qmr"
+allowed_dpids = ["*"]
 exclude_from_rollup = []
 
 [agg.snapshot]
 output_path = "{output_dir / "snapshot"}"
 source_field = "has_scdm"
 subdirectory = "scdm_snapshot"
+allowed_dpids = ["*"]
 exclude_from_rollup = []
 """)
 
@@ -209,17 +212,20 @@ log_dir = "{state_dir / "logs"}"
 [agg.qa]
 output_path = "{output_dir / "qa"}"
 source_reqtype = "qar"
+allowed_dpids = ["*"]
 exclude_from_rollup = []
 
 [agg.qm]
 output_path = "{output_dir / "qm"}"
 source_reqtype = "qmr"
+allowed_dpids = ["*"]
 exclude_from_rollup = []
 
 [agg.snapshot]
 output_path = "{output_dir / "snapshot"}"
 source_field = "has_scdm"
 subdirectory = "scdm_snapshot"
+allowed_dpids = ["*"]
 exclude_from_rollup = []
 """)
 
