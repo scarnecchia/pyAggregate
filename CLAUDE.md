@@ -40,6 +40,10 @@ Legacy `[output]` sections are rejected with a migration error.
 
 Agg type identifiers: `qa`, `qm`, `snapshot` (not `sdd`).
 
+Each `[agg.<name>]` block requires `allowed_dpids` -- a list of lowercase DPID strings
+controlling which data partners are included. Use `["*"]` for all. Unknown DPIDs
+(not found in catalog) produce warnings at run time but do not error.
+
 ## Conventions
 - Config precedence: CLI flag > PYAGGREGATE_CONFIG env var > ./pyaggregate.toml
 - Run ID defaults to today's ISO date

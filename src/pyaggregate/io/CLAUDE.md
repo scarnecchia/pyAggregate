@@ -1,6 +1,6 @@
 # I/O Layer
 
-Last verified: 2026-05-20
+Last verified: 2026-05-21
 
 ## Purpose
 Isolates all filesystem and database side effects from the pure domain logic
@@ -20,7 +20,7 @@ in `core/`. Every function here is an Imperative Shell adapter.
 - **Guarantees**: Concurrent scans blocked via SQLite advisory lock.
 
 ### input_resolver.py
-- **`resolve_inputs(catalog, agg_config)`**: Orchestrates filter -> glob -> group. For snapshot agg types, globs from `subdirectory`; for qa/qm, globs root of msoc_path.
+- **`resolve_inputs(catalog, agg_config)`**: Orchestrates filter -> DPID allowlist -> glob -> group. For snapshot agg types, globs from `subdirectory`; for qa/qm, globs root of msoc_path. DPID filtering applies `agg_config.allowed_dpids` via `filter_allowed_dpids`.
 - **Expects**: `source_field` requires `subdirectory` to also be set.
 
 ### catalog_store.py
