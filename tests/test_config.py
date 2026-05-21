@@ -263,6 +263,25 @@ output_path = "relative/path"
         config = load_config(config_file)
         assert config.agg_types["qa"].output_path == Path("relative/path")
 
+    def test_output_path_non_string_rejected(self, tmp_path: Path) -> None:
+        """Reject non-string output_path values (Minor: type validation)."""
+        config_file = tmp_path / "non_string_output_path.toml"
+        config_file.write_text("""
+[scan]
+requests_root = "/data/requests"
+
+[state]
+catalog_db = "/data/state/catalog.db"
+log_dir = "/data/state/logs"
+
+[agg.qa]
+source_reqtype = "qar"
+output_path = 42
+""")
+
+        with pytest.raises(ValueError, match="output_path must be a string"):
+            load_config(config_file)
+
 
 class TestResolveConfigPath:
     """Test config path resolution."""

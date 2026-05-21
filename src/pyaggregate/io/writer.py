@@ -14,8 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def write_run(
-    output_root: Path,
-    agg_type: str,
+    output_path: Path,
     run_id: str,
     table_outputs: dict[str, dict[str, pl.DataFrame]],
     dpid_map_frame: pl.DataFrame,
@@ -24,14 +23,13 @@ def write_run(
 ) -> None:
     """Write aggregation outputs to disk with atomic temp-rename pattern.
 
-    Writes parquet files to output_root/<agg_type>/<run_id>/<output_type>/
+    Writes parquet files to output_path/<run_id>/<output_type>/
     using temp-then-rename for atomicity. Creates dpid_map.csv filtered to
     surrogates actually used in masked outputs. Manages latest symlink atomically.
     Includes aggregation-time failures in run_summary.json.
 
     Args:
-        output_root: Root directory for outputs
-        agg_type: Aggregation type (qa, qm, sdd)
+        output_path: Per-agg output directory (from config agg_config.output_path)
         run_id: Run identifier (directory name)
         table_outputs: Dict mapping table_name -> {output_type -> DataFrame}
         dpid_map_frame: Full dpid_map DataFrame to filter
@@ -41,7 +39,7 @@ def write_run(
     if tables_skipped is None:
         tables_skipped = []
 
-    run_dir = output_root / agg_type / run_id
+    run_dir = output_path / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
 
     # Clean up orphaned .tmp files from previous interrupted runs
@@ -60,7 +58,6 @@ def write_run(
             logger.info(
                 "writing output",
                 extra={
-                    "agg_type": agg_type,
                     "run_id": run_id,
                     "table": table_name,
                 },
@@ -107,7 +104,6 @@ def write_run(
 
     summary = build_run_summary(
         run_id=run_id,
-        agg_type=agg_type,
         started_at=started_at,
         ended_at=ended_at,
         tables_succeeded=tables_succeeded,
@@ -123,9 +119,8 @@ def write_run(
 
     # Update latest symlink if requested
     if update_latest:
-        latest_dir = output_root / agg_type
-        latest_path = latest_dir / "latest"
-        latest_tmp = latest_dir / f"latest.{tempfile.gettempprefix()}{os.getpid()}"
+        latest_path = output_path / "latest"
+        latest_tmp = output_path / f"latest.{tempfile.gettempprefix()}{os.getpid()}"
 
         # Create symlink to temp name (relative path to run_id)
         os.symlink(run_id, str(latest_tmp))
@@ -136,7 +131,6 @@ def write_run(
         logger.info(
             "symlink updated",
             extra={
-                "agg_type": agg_type,
                 "target": run_id,
             },
         )
@@ -173,7 +167,6 @@ def filter_dpid_map(
 
 def build_run_summary(
     run_id: str,
-    agg_type: str,
     started_at: str,
     ended_at: str,
     tables_succeeded: list[str],
@@ -187,7 +180,6 @@ def build_run_summary(
 
     Args:
         run_id: Run identifier
-        agg_type: Aggregation type (qa, qm, sdd)
         started_at: ISO timestamp of run start
         ended_at: ISO timestamp of run end
         tables_succeeded: List of table names that succeeded
@@ -199,7 +191,6 @@ def build_run_summary(
     """
     return {
         "run_id": run_id,
-        "agg_type": agg_type,
         "started_at": started_at,
         "ended_at": ended_at,
         "tables_succeeded": tables_succeeded,
@@ -208,16 +199,15 @@ def build_run_summary(
     }
 
 
-def check_run_exists(output_root: Path, agg_type: str, run_id: str) -> bool:
+def check_run_exists(output_path: Path, run_id: str) -> bool:
     """Check if a run directory already exists.
 
     Args:
-        output_root: Root directory for outputs
-        agg_type: Aggregation type (qa, qm, sdd)
+        output_path: Per-agg output directory (from config agg_config.output_path)
         run_id: Run identifier
 
     Returns:
         True if run directory exists, False otherwise
     """
-    run_dir = output_root / agg_type / run_id
+    run_dir = output_path / run_id
     return run_dir.exists()

@@ -220,15 +220,15 @@ class TestRunOrchestration:
         assert result.exit_code == 0
 
         # Verify qa output exists
-        qa_output = config.output.output_root / "qa" / date.today().isoformat()
+        qa_output = config.agg_types["qa"].output_path / date.today().isoformat()
         assert (qa_output / "stacked").exists()
 
         # Verify sdd output exists
-        sdd_output = config.output.output_root / "sdd" / date.today().isoformat()
+        sdd_output = config.agg_types["sdd"].output_path / date.today().isoformat()
         assert (sdd_output / "stacked").exists()
 
         # Verify qm output does NOT exist
-        qm_output = config.output.output_root / "qm"
+        qm_output = config.agg_types["qm"].output_path
         assert not (qm_output / date.today().isoformat()).exists()
 
     def test_run_no_update_latest_flag(
@@ -255,11 +255,11 @@ class TestRunOrchestration:
         assert result.exit_code == 0
 
         # Verify run directory exists
-        run_dir = config.output.output_root / "qa" / date.today().isoformat()
+        run_dir = config.agg_types["qa"].output_path / date.today().isoformat()
         assert run_dir.exists()
 
         # Verify latest symlink does NOT exist
-        latest_link = config.output.output_root / "qa" / "latest"
+        latest_link = config.agg_types["qa"].output_path / "latest"
         assert not latest_link.exists()
 
     def test_run_with_custom_run_id(
@@ -287,7 +287,7 @@ class TestRunOrchestration:
         assert result.exit_code == 0
 
         # Verify run directory with custom run_id exists
-        run_dir = config.output.output_root / "qa" / "2026-05-14-rerun"
+        run_dir = config.agg_types["qa"].output_path / "2026-05-14-rerun"
         assert run_dir.exists()
         assert (run_dir / "stacked").exists()
 
@@ -355,7 +355,7 @@ class TestRunOrchestration:
         )
         assert result1.exit_code == 0
 
-        run_dir = config.output.output_root / "qa" / "2026-05-14-test"
+        run_dir = config.agg_types["qa"].output_path / "2026-05-14-test"
         first_run_timestamp = (run_dir / "run_summary.json").stat().st_mtime
 
         # Second run with --force
@@ -402,7 +402,7 @@ class TestRunOrchestration:
         assert result.exit_code == 0
 
         today = date.today().isoformat()
-        run_dir = config.output.output_root / "qa" / today
+        run_dir = config.agg_types["qa"].output_path / today
         assert run_dir.exists()
 
     def test_run_all_agg_types_no_filter(
@@ -429,7 +429,7 @@ class TestRunOrchestration:
 
         # Verify all three agg types have output
         for agg_type in ["qa", "qm", "sdd"]:
-            run_dir = config.output.output_root / agg_type / today
+            run_dir = config.agg_types[agg_type].output_path / today
             assert run_dir.exists(), f"{agg_type} output not found"
             assert (run_dir / "stacked").exists()
 
@@ -518,7 +518,7 @@ class TestRunOrchestration:
         )
         assert result1.exit_code == 0
 
-        latest_link = config.output.output_root / "qa" / "latest"
+        latest_link = config.agg_types["qa"].output_path / "latest"
         assert latest_link.is_symlink()
         assert latest_link.readlink() == Path("2026-05-13")
 
@@ -539,35 +539,6 @@ class TestRunOrchestration:
 
         # Latest should now point to new run
         assert latest_link.readlink() == Path("2026-05-14")
-
-    def test_run_with_alternate_output_root(
-        self,
-        cli_runner: CliRunner,
-        test_config: tuple[Path, AppConfig],
-        mock_patches,
-    ) -> None:
-        """--output-root flag allows alternate output directory."""
-        config_file, config = test_config
-        alternate_output = config.output.output_root.parent / "alternate_outputs"
-
-        result = cli_runner.invoke(
-            app,
-            [
-                "run",
-                "--type",
-                "qa",
-                "--output-root",
-                str(alternate_output),
-                "--config",
-                str(config_file),
-            ],
-        )
-
-        assert result.exit_code == 0
-
-        today = date.today().isoformat()
-        run_dir = alternate_output / "qa" / today
-        assert run_dir.exists()
 
     def test_run_summary_json_created(
         self,
@@ -592,7 +563,7 @@ class TestRunOrchestration:
         assert result.exit_code == 0
 
         today = date.today().isoformat()
-        summary_path = config.output.output_root / "qa" / today / "run_summary.json"
+        summary_path = config.agg_types["qa"].output_path / today / "run_summary.json"
         assert summary_path.exists()
 
         with open(summary_path) as f:
@@ -665,11 +636,9 @@ requests_root = "/data/requests"
 catalog_db = "{primary_catalog}"
 log_dir = "{tmp_path / "logs"}"
 
-[output]
-output_root = "{output_root}"
-
 [agg.qa]
 source_reqtype = "qar"
+output_path = "{output_root / "qa"}"
 exclude_from_rollup = ["*_stats"]
 """)
 
@@ -705,52 +674,6 @@ exclude_from_rollup = ["*_stats"]
                 # Should have kpsc (dp_001 in alternate catalog)
                 assert len(surrogates) > 0
 
-    def test_run_with_alternate_output_root_ac4_2(
-        self,
-        cli_runner: CliRunner,
-        test_config: tuple[Path, AppConfig],
-        mock_patches,
-    ) -> None:
-        """AC4.2: With --output-root, the default output_root directory is empty or nonexistent.
-
-        Extends test_run_with_alternate_output_root to also verify the default
-        output_root is not populated.
-        """
-        config_file, config = test_config
-        alternate_output = config.output.output_root.parent / "alternate_outputs"
-
-        result = cli_runner.invoke(
-            app,
-            [
-                "run",
-                "--type",
-                "qa",
-                "--output-root",
-                str(alternate_output),
-                "--config",
-                str(config_file),
-            ],
-        )
-
-        assert result.exit_code == 0
-
-        today = date.today().isoformat()
-        run_dir = alternate_output / "qa" / today
-        assert run_dir.exists()
-
-        # Verify default output_root (from config) is empty or has no qa/<date> subdirs
-        default_qa_output = config.output.output_root / "qa"
-        if default_qa_output.exists():
-            # Check no run directories exist in default location
-            run_dirs = [d for d in default_qa_output.iterdir() if d.is_dir()]
-            # Should be empty or only contain non-date-named directories
-            date_dirs = [
-                d for d in run_dirs if d.name == today or d.name.startswith("202")
-            ]
-            assert len(date_dirs) == 0, (
-                f"Default output_root should be empty but contains: {date_dirs}"
-            )
-
     def test_run_no_update_latest_with_preexisting_symlink_ac4_3(
         self,
         cli_runner: CliRunner,
@@ -780,7 +703,7 @@ exclude_from_rollup = ["*_stats"]
         )
         assert result1.exit_code == 0
 
-        latest_link = config.output.output_root / "qa" / "latest"
+        latest_link = config.agg_types["qa"].output_path / "latest"
         assert latest_link.is_symlink()
         original_target = latest_link.readlink()
         assert original_target == Path("2026-05-13")
@@ -835,7 +758,7 @@ exclude_from_rollup = ["*_stats"]
         )
         assert result1.exit_code == 0
 
-        latest_link = config.output.output_root / "qa" / "latest"
+        latest_link = config.agg_types["qa"].output_path / "latest"
         assert latest_link.is_symlink()
         original_target = latest_link.readlink()
         assert original_target == Path("2026-05-14")
@@ -857,7 +780,7 @@ exclude_from_rollup = ["*_stats"]
         assert result2.exit_code == 0
 
         # Verify custom run_id directory exists
-        rerun_dir = config.output.output_root / "qa" / "2026-05-14-rerun"
+        rerun_dir = config.agg_types["qa"].output_path / "2026-05-14-rerun"
         assert rerun_dir.exists()
         assert (rerun_dir / "stacked").exists()
 

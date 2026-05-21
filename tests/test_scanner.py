@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from pyaggregate.config import AppConfig, AggTypeConfig, ScanConfig, StateConfig
+from pyaggregate.config import AppConfig, ScanConfig, StateConfig
 from pyaggregate.io.catalog_store import CatalogStore
 from pyaggregate.io.scanner import run_scan, run_scan_dry
 

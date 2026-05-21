@@ -126,10 +126,6 @@ def scan(
 def run(
     type: list[str] = typer.Option(None, "--type", help="Aggregation type(s) to run"),
     catalog: Path | None = typer.Option(None, help="Path to alternate catalog db"),
-    output_root: Path | None = typer.Option(
-        None,
-        help="Path to alternate output root",
-    ),
     run_id: str | None = typer.Option(None, help="Custom run ID (default: today's date)"),
     update_latest: bool = typer.Option(
         True,
@@ -153,9 +149,8 @@ def run(
 
         configure_logging(log_dir=cfg.state.log_dir, level=_log_level)
 
-        # Resolve catalog and output paths
+        # Resolve catalog path
         catalog_db = catalog if catalog is not None else cfg.state.catalog_db
-        output_root_path = output_root if output_root is not None else cfg.output.output_root
 
         # Default run_id to today's date
         if run_id is None:
@@ -178,10 +173,10 @@ def run(
             agg_config = cfg.agg_types[agg_type]
 
             # Check if run directory exists
-            if check_run_exists(output_root_path, agg_type, run_id) and not force:
+            if check_run_exists(agg_config.output_path, run_id) and not force:
                 typer.echo(
                     f"failed to run {agg_type}: run directory already exists "
-                    f"({output_root_path / agg_type / run_id}). Use --force to overwrite.",
+                    f"({agg_config.output_path / run_id}). Use --force to overwrite.",
                     err=True,
                 )
                 raise typer.Exit(code=1)
@@ -234,8 +229,7 @@ def run(
             # Write outputs
             if table_outputs:
                 write_run(
-                    output_root=output_root_path,
-                    agg_type=agg_type,
+                    output_path=agg_config.output_path,
                     run_id=run_id,
                     table_outputs=table_outputs,
                     dpid_map_frame=dpid_map_df,
@@ -245,7 +239,7 @@ def run(
 
                 typer.echo(
                     f"successfully wrote {len(table_outputs)} tables to "
-                    f"{output_root_path / agg_type / run_id}"
+                    f"{agg_config.output_path / run_id}"
                 )
                 if has_partial_failure:
                     typer.echo(
