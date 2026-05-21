@@ -23,7 +23,7 @@ def table_outputs() -> dict[str, dict[str, pl.DataFrame]]:
         "ae": {
             "stacked": pl.DataFrame(
                 {
-                    "dpid": ["aeos", "cms"],
+                    "dpid": ["msoc", "nsdp"],
                     "col1": [1, 2],
                 }
             ),
@@ -42,7 +42,7 @@ def table_outputs() -> dict[str, dict[str, pl.DataFrame]]:
         "ae_stats": {
             "stacked": pl.DataFrame(
                 {
-                    "dpid": ["aeos"],
+                    "dpid": ["msoc"],
                     "col1": [1],
                 }
             ),
@@ -62,7 +62,7 @@ def dpid_map() -> pl.DataFrame:
     """Create synthetic dpid_map for testing."""
     return pl.DataFrame(
         {
-            "dpid": ["aeos", "cms", "kpsc"],
+            "dpid": ["msoc", "nsdp", "kpsc"],
             "surrogate_id": ["dp_001", "dp_002", "dp_003"],
             "first_seen_at": ["2026-01-01T00:00:00+00:00"] * 3,
         }
@@ -378,7 +378,7 @@ def test_write_run_empty_masked_surrogates(tmp_path, dpid_map):
         "ae": {
             "stacked": pl.DataFrame(
                 {
-                    "dpid": ["aeos"],
+                    "dpid": ["msoc"],
                     "col1": [1],
                 }
             ),
@@ -412,7 +412,7 @@ class TestFilterDpidMap:
     def test_filters_to_used_surrogates(self) -> None:
         dpid_map = pl.DataFrame(
             {
-                "dpid": ["aeos", "cms", "kpsc"],
+                "dpid": ["msoc", "nsdp", "kpsc"],
                 "surrogate_id": ["dp_001", "dp_002", "dp_003"],
                 "first_seen_at": ["2026-01-01"] * 3,
             }
@@ -431,14 +431,14 @@ class TestFilterDpidMap:
     def test_empty_masked_surrogates_returns_zero_rows(self) -> None:
         dpid_map = pl.DataFrame(
             {
-                "dpid": ["aeos"],
+                "dpid": ["msoc"],
                 "surrogate_id": ["dp_001"],
                 "first_seen_at": ["2026-01-01"],
             }
         )
         table_outputs = {
             "ae": {
-                "stacked": pl.DataFrame({"dpid": ["aeos"], "val": [1]}),
+                "stacked": pl.DataFrame({"dpid": ["msoc"], "val": [1]}),
             },
         }
 
@@ -451,7 +451,7 @@ class TestFilterDpidMap:
     def test_null_surrogates_excluded(self) -> None:
         dpid_map = pl.DataFrame(
             {
-                "dpid": ["aeos"],
+                "dpid": ["msoc"],
                 "surrogate_id": ["dp_001"],
                 "first_seen_at": ["2026-01-01"],
             }
@@ -485,7 +485,7 @@ class TestBuildManifestEntry:
 
         df = pl.DataFrame(
             {
-                "dpid": ["aeos", "cms", "kpsc"],
+                "dpid": ["msoc", "nsdp", "kpsc"],
                 "col1": [1, 2, 3],
             }
         )
@@ -505,7 +505,7 @@ class TestBuildManifestEntry:
 
         df = pl.DataFrame(
             {
-                "dpid": ["aeos"],
+                "dpid": ["msoc"],
                 "col1": [1],
                 "col2": [2],
                 "col3": [3],
@@ -527,7 +527,7 @@ class TestBuildManifestEntry:
 
         df = pl.DataFrame(
             {
-                "dpid": ["aeos"],
+                "dpid": ["msoc"],
                 "count": [42],
             }
         )
@@ -742,9 +742,9 @@ class TestCollectManifest:
         table_inputs_dict = {
             "ae": [
                 TableInput(
-                    dpid="aeos",
+                    dpid="msoc",
                     wpid="wp001",
-                    msoc_path=Path("/data/msoc/aeos"),
+                    msoc_path=Path("/data/msoc/msoc"),
                     reqtype="REQUEST",
                 ),
             ],
@@ -752,13 +752,11 @@ class TestCollectManifest:
 
         manifest = collect_manifest(run_dir, "qa", "2026-05-14", table_inputs_dict)
 
-        assert "ae" in manifest["inputs"]
-        assert len(manifest["inputs"]["ae"]) == 1
-        input_entry = manifest["inputs"]["ae"][0]
-        assert input_entry["dpid"] == "aeos"
+        assert "REQUEST" in manifest["inputs"]
+        assert "msoc" in manifest["inputs"]["REQUEST"]
+        input_entry = manifest["inputs"]["REQUEST"]["msoc"]
         assert input_entry["wpid"] == "wp001"
-        assert input_entry["msoc_path"] == "/data/msoc/aeos"
-        assert input_entry["reqtype"] == "REQUEST"
+        assert input_entry["path"] == "/data/msoc/msoc"
 
     def test_manifest_msoc_path_absolute(self, tmp_path, table_outputs, dpid_map) -> None:
         """Test AC6.3: msoc_path values are absolute filesystem paths."""
@@ -776,7 +774,7 @@ class TestCollectManifest:
         table_inputs_dict = {
             "ae": [
                 TableInput(
-                    dpid="aeos",
+                    dpid="msoc",
                     wpid="wp001",
                     msoc_path=Path("/absolute/path/to/data"),
                     reqtype="REQUEST",
@@ -786,7 +784,7 @@ class TestCollectManifest:
 
         manifest = collect_manifest(run_dir, "qa", "2026-05-14", table_inputs_dict)
 
-        assert manifest["inputs"]["ae"][0]["msoc_path"].startswith("/")
+        assert manifest["inputs"]["REQUEST"]["msoc"]["path"].startswith("/")
 
     def test_manifest_inputs_sorted_by_dpid(self, tmp_path, table_outputs, dpid_map) -> None:
         """Test AC6.4: Input entries within each table are sorted by dpid."""
@@ -820,12 +818,12 @@ class TestCollectManifest:
 
         manifest = collect_manifest(run_dir, "qa", "2026-05-14", table_inputs_dict)
 
-        dpids = [entry["dpid"] for entry in manifest["inputs"]["ae"]]
+        dpids = list(manifest["inputs"]["REQUEST"].keys())
         assert dpids == sorted(dpids)
         assert dpids == ["alpha", "zulu"]
 
-    def test_manifest_table_with_no_inputs(self, tmp_path, table_outputs, dpid_map) -> None:
-        """Test AC6.5: Table not in table_inputs_dict has no entry in inputs."""
+    def test_manifest_inputs_only_from_provided_tables(self, tmp_path, table_outputs, dpid_map) -> None:
+        """Inputs section only contains dpids from provided table_inputs_dict."""
         output_path = tmp_path / "outputs" / "qa"
         write_run(
             output_path=output_path,
@@ -840,9 +838,9 @@ class TestCollectManifest:
         table_inputs_dict = {
             "ae": [
                 TableInput(
-                    dpid="aeos",
+                    dpid="msoc",
                     wpid="wp001",
-                    msoc_path=Path("/data/aeos"),
+                    msoc_path=Path("/data/msoc"),
                     reqtype="REQUEST",
                 ),
             ],
@@ -850,9 +848,11 @@ class TestCollectManifest:
 
         manifest = collect_manifest(run_dir, "qa", "2026-05-14", table_inputs_dict)
 
-        # ae_stats is in tables but not in inputs because we didn't provide it
-        assert "ae_stats" in manifest["tables"]
-        assert "ae_stats" not in manifest["inputs"]
+        assert manifest["inputs"] == {
+            "REQUEST": {
+                "msoc": {"wpid": "wp001", "path": "/data/msoc"},
+            },
+        }
 
     def test_manifest_default_none_table_inputs_dict(self, tmp_path, table_outputs, dpid_map) -> None:
         """Test that table_inputs_dict defaults to empty dict when None."""
@@ -991,17 +991,17 @@ class TestManifestIntegration:
         table_inputs_dict = {
             "ae": [
                 TableInput(
-                    dpid="aeos",
+                    dpid="msoc",
                     wpid="wp001",
-                    msoc_path=Path("/data/msoc/aeos"),
+                    msoc_path=Path("/data/msoc/msoc"),
                     reqtype="REQUEST",
                 ),
             ],
             "ae_stats": [
                 TableInput(
-                    dpid="cms",
+                    dpid="nsdp",
                     wpid="wp002",
-                    msoc_path=Path("/data/msoc/cms"),
+                    msoc_path=Path("/data/msoc/nsdp"),
                     reqtype="REQUEST",
                 ),
             ],
@@ -1021,10 +1021,11 @@ class TestManifestIntegration:
         with open(manifest_path) as f:
             manifest = json.load(f)
 
-        assert "ae" in manifest["inputs"]
-        assert "ae_stats" in manifest["inputs"]
-        assert manifest["inputs"]["ae"][0]["dpid"] == "aeos"
-        assert manifest["inputs"]["ae_stats"][0]["dpid"] == "cms"
+        assert "REQUEST" in manifest["inputs"]
+        assert "msoc" in manifest["inputs"]["REQUEST"]
+        assert "nsdp" in manifest["inputs"]["REQUEST"]
+        assert manifest["inputs"]["REQUEST"]["msoc"]["wpid"] == "wp001"
+        assert manifest["inputs"]["REQUEST"]["nsdp"]["wpid"] == "wp002"
 
 
 def test_byte_identical_manifests_from_identical_inputs(tmp_path, table_outputs, dpid_map):

@@ -300,18 +300,16 @@ def collect_manifest(
     for table_name in tables:
         tables[table_name]["outputs"] = dict(sorted(tables[table_name]["outputs"].items()))
 
-    # Build inputs section from resolved TableInput records (AC6)
-    inputs: dict[str, list[dict]] = {}
-    for table_name, table_inputs in sorted(table_inputs_dict.items()):
-        inputs[table_name] = [
-            {
-                "dpid": ti.dpid,
+    # Build inputs section grouped by reqtype → dpid
+    inputs: dict[str, dict[str, dict[str, str]]] = {}
+    for _table_name, table_inputs in table_inputs_dict.items():
+        for ti in table_inputs:
+            reqtype_group = inputs.setdefault(ti.reqtype, {})
+            reqtype_group[ti.dpid] = {
                 "wpid": ti.wpid,
-                "msoc_path": str(ti.msoc_path),
-                "reqtype": ti.reqtype,
+                "path": str(ti.msoc_path),
             }
-            for ti in sorted(table_inputs, key=lambda ti: ti.dpid)
-        ]
+    inputs = {k: dict(sorted(v.items())) for k, v in sorted(inputs.items())}
 
     # Read dpid_map surrogate count from disk (intentional: manifest reflects
     # what actually landed on disk, not what the pipeline intended to write)
