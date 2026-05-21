@@ -200,8 +200,8 @@ output_path = "{output_dir / "qm"}"
 source_reqtype = "qmr"
 exclude_from_rollup = []
 
-[agg.sdd]
-output_path = "{output_dir / "sdd"}"
+[agg.snapshot]
+output_path = "{output_dir / "snapshot"}"
 source_field = "has_scdm"
 subdirectory = "scdm_snapshot"
 exclude_from_rollup = []
