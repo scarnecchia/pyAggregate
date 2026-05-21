@@ -30,16 +30,21 @@ log_dir = "/var/log/pyaggregate"
 [agg.qa]
 source_reqtype = "qar"
 output_path = "/var/lib/pyaggregate/outputs/qa"
+allowed_dpids = ["*"]
 
 [agg.qm]
 source_reqtype = "qmr"
 output_path = "/var/lib/pyaggregate/outputs/qm"
+allowed_dpids = ["*"]
 
 [agg.snapshot]
 source_field = "has_scdm"
 subdirectory = "scdm_snapshot"
 output_path = "/var/lib/pyaggregate/outputs/snapshot"
+allowed_dpids = ["*"]
 ```
+
+Each `[agg.*]` block requires `allowed_dpids` — a list of lowercase DPID strings controlling which data partners are included. Use `["*"]` for all. Unknown DPIDs (not found in catalog) produce warnings at run time but do not error.
 
 ---
 
@@ -77,6 +82,7 @@ Each run produces a single log file entry. Timestamp and all structured fields a
 
 **Notes:**
 - The `run` command is more resource-intensive than `scan`
+- Tables are aggregated concurrently across CPU cores (thread pool)
 - Allow 5-30 minutes for execution depending on data volume
 - Schedule during off-peak hours to avoid impacting analysts
 
@@ -92,20 +98,26 @@ The state directory (configured as `state.catalog_db` parent) contains:
 ├── catalog.db.bak          # Nightly backup (see "Backup Strategy")
 └── outputs/
     ├── qa/
-    │   ├── 2026-05-15-000001/
-    │   │   ├── ae.parquet
-    │   │   ├── dem.parquet
+    │   ├── 2026-05-15/
+    │   │   ├── stacked/
+    │   │   │   ├── ae.parquet
+    │   │   │   └── dem.parquet
+    │   │   ├── masked/
+    │   │   │   ├── ae.parquet
+    │   │   │   └── dem.parquet
+    │   │   ├── rollup/
+    │   │   │   └── ae.parquet
     │   │   ├── dpid_map.csv
-    │   │   ├── summary.json
-    │   │   └── .run-metadata.json  (temporary, deleted after summary write)
-    │   ├── 2026-05-14-000001/
-    │   └── latest -> 2026-05-15-000001
+    │   │   ├── manifest.json
+    │   │   └── run_summary.json
+    │   ├── 2026-05-14/
+    │   └── latest -> 2026-05-15
     ├── qm/
-    │   ├── 2026-05-15-000001/
-    │   └── latest -> 2026-05-15-000001
+    │   ├── 2026-05-15/
+    │   └── latest -> 2026-05-15
     └── snapshot/
-        ├── 2026-05-15-000001/
-        └── latest -> 2026-05-15-000001
+        ├── 2026-05-15/
+        └── latest -> 2026-05-15
 
 /var/log/pyaggregate/
 ├── pyaggregate-2026-05-14.log     # JSON-lines structured logs
@@ -116,8 +128,10 @@ The state directory (configured as `state.catalog_db` parent) contains:
 **Key files:**
 
 - **catalog.db**: Core state. Loss of this file requires re-scan from scratch.
-- **latest symlinks**: Analysts use these to access current outputs. Must remain valid during writes.
-- **.tmp files**: Temporary files created during writes. All `.tmp` files are cleaned up after a successful run. If any remain after the run completes, it indicates a failed write attempt.
+- **latest symlinks**: Analysts use these to access current outputs. Updated atomically via temp-symlink-then-rename.
+- **manifest.json**: Per-run metadata including table columns, row counts, and input provenance.
+- **run_summary.json**: Exit code, timing, and skipped-table details for operators.
+- **Staging directories**: During a write, files are assembled in `.tmp_<run_id>/` then atomically renamed to `<run_id>/`. If a `.tmp_*` directory remains after a run completes, it indicates an interrupted write.
 
 ---
 
@@ -145,7 +159,7 @@ After backup, verify the file:
 ls -lh /var/lib/pyaggregate/catalog.db.bak
 
 # Verify database integrity
-sqlite3 /var/lib/pyaggregate/catalog.db.bak "SELECT COUNT(*) FROM package_manifest;"
+sqlite3 /var/lib/pyaggregate/catalog.db.bak "SELECT COUNT(*) FROM catalog;"
 ```
 
 ### Archival
@@ -434,8 +448,12 @@ Possible causes:
 
 **Investigation:**
 ```bash
-# Inspect summary.json
-jq . /var/lib/pyaggregate/outputs/qa/latest/summary.json
+# Inspect run_summary.json
+jq . /var/lib/pyaggregate/outputs/qa/latest/run_summary.json
+
+# Inspect manifest.json for row counts and column details
+jq '.tables | to_entries[] | {table: .key, outputs: (.value.outputs | keys)}' \
+  /var/lib/pyaggregate/outputs/qa/latest/manifest.json
 
 # Check dpid_map.csv for rejected DPs
 wc -l /var/lib/pyaggregate/outputs/qa/latest/dpid_map.csv
@@ -460,7 +478,7 @@ du -sh /var/lib/pyaggregate/outputs/
 **Cleanup:**
 - Delete old output directories (see "Output Directory Cleanup")
 - Delete old log files (logrotate handles this automatically)
-- Verify no `.tmp` files are left behind
+- Check for leftover `.tmp_*` staging directories and remove them
 
 ### Scanner Detects Many "Unparseable" Directories
 

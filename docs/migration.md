@@ -32,15 +32,18 @@ log_dir = "/tmp/pyaggregate-test/logs"
 [agg.qa]
 source_reqtype = "qar"
 output_path = "/tmp/pyaggregate-test/outputs/qa"
+allowed_dpids = ["*"]
 
 [agg.qm]
 source_reqtype = "qmr"
 output_path = "/tmp/pyaggregate-test/outputs/qm"
+allowed_dpids = ["*"]
 
 [agg.snapshot]
 source_field = "has_scdm"
 subdirectory = "scdm_snapshot"
 output_path = "/tmp/pyaggregate-test/outputs/snapshot"
+allowed_dpids = ["*"]
 EOF
 ```
 
@@ -94,7 +97,7 @@ import json
 sas_qa = pd.read_parquet("/tmp/baseline-qa-latest/ae.parquet")
 
 # Load pyAggregate output
-pya_qa = pd.read_parquet("/tmp/pyaggregate-test/outputs/qa/latest/ae.parquet")
+pya_qa = pd.read_parquet("/tmp/pyaggregate-test/outputs/qa/latest/stacked/ae.parquet")
 
 # Compare schemas
 print("=== SAS Schema ===")
@@ -135,7 +138,7 @@ tables = ["ae", "dem", "lab", "vital"]
 for table in tables:
     try:
         sas_df = pd.read_parquet(f"/tmp/baseline-qa-latest/{table}.parquet")
-        pya_df = pd.read_parquet(f"/tmp/pyaggregate-test/outputs/qa/latest/{table}.parquet")
+        pya_df = pd.read_parquet(f"/tmp/pyaggregate-test/outputs/qa/latest/stacked/{table}.parquet")
         
         sas_rows = len(sas_df)
         pya_rows = len(pya_df)
@@ -165,7 +168,7 @@ import pandas as pd
 import numpy as np
 
 sas_df = pd.read_parquet("/tmp/baseline-qa-latest/ae.parquet")
-pya_df = pd.read_parquet("/tmp/pyaggregate-test/outputs/qa/latest/ae.parquet")
+pya_df = pd.read_parquet("/tmp/pyaggregate-test/outputs/qa/latest/stacked/ae.parquet")
 
 # Sort both by DPID and internal key to ensure alignment
 key_cols = [c for c in sas_df.columns if c.startswith(("SURR", "DPID"))]
@@ -284,7 +287,7 @@ Small row count differences may be acceptable if due to known data handling diff
 - [ ] All three agg types (QA, QM, SCDM Snapshot) are consistent
 - [ ] Run completed without errors (check exit code and logs)
 - [ ] dpid_map.csv contains all expected data partners
-- [ ] No `.tmp` files left behind
+- [ ] No `.tmp_*` staging directories left behind
 
 **If all checks pass**, proceed to Phase 2.
 
@@ -335,7 +338,7 @@ DIFFERENCES=""
 
 for TABLE in ae dem lab vital; do
   SAS_ROWS=$(python3 -c "import pandas as pd; print(len(pd.read_parquet('$SAS_RUN/$TABLE.parquet')))" 2>/dev/null || echo "NOTFOUND")
-  PYA_ROWS=$(python3 -c "import pandas as pd; print(len(pd.read_parquet('$PYA_RUN/$TABLE.parquet')))" 2>/dev/null || echo "NOTFOUND")
+  PYA_ROWS=$(python3 -c "import pandas as pd; print(len(pd.read_parquet('$PYA_RUN/stacked/$TABLE.parquet')))" 2>/dev/null || echo "NOTFOUND")
   
   if [ "$SAS_ROWS" != "$PYA_ROWS" ]; then
     DIFFERENCES="${DIFFERENCES}${TABLE}: SAS=$SAS_ROWS, pyAgg=$PYA_ROWS\n"
@@ -405,7 +408,7 @@ for i in range(7):
     
     for table in ["ae", "dem", "lab", "vital"]:
         sas_file = sas_run / f"{table}.parquet"
-        pya_file = pya_run / f"{table}.parquet"
+        pya_file = pya_run / "stacked" / f"{table}.parquet"
         
         if sas_file.exists() and pya_file.exists():
             sas_rows = len(pd.read_parquet(sas_file))
@@ -479,7 +482,7 @@ Schedule the cutover during a planned maintenance window:
 
 # 2. Verify latest pyAggregate output is fresh and correct
 ls -l /var/lib/pyaggregate/outputs/qa/latest/
-jq . /var/lib/pyaggregate/outputs/qa/latest/summary.json
+jq . /var/lib/pyaggregate/outputs/qa/latest/run_summary.json
 
 # 3. Update analyst access paths (if they have hardcoded paths)
 # Example: if analysts reference /output/sas/qa/latest, 
@@ -684,9 +687,9 @@ Update project documentation to remove any SAS-related procedures:
    diff /tmp/baseline-qa-latest/dpid_map.csv /tmp/pyaggregate-test/outputs/qa/latest/dpid_map.csv
    ```
 
-3. Inspect summary.json:
+3. Inspect run_summary.json:
    ```bash
-   jq . /tmp/pyaggregate-test/outputs/qa/latest/summary.json | grep -A5 skipped
+   jq . /tmp/pyaggregate-test/outputs/qa/latest/run_summary.json | grep -A5 skipped
    ```
 
 **Common causes:**
@@ -705,7 +708,7 @@ Update project documentation to remove any SAS-related procedures:
    import pandas as pd
    import numpy as np
    sas = pd.read_parquet("/tmp/baseline-qa-latest/ae.parquet")
-   pya = pd.read_parquet("/tmp/pyaggregate-test/outputs/qa/latest/ae.parquet")
+   pya = pd.read_parquet("/tmp/pyaggregate-test/outputs/qa/latest/stacked/ae.parquet")
    
    # Check columns with numeric values
    for col in sas.select_dtypes(include=[np.number]).columns:
