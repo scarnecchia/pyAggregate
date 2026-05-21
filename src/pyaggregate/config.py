@@ -21,6 +21,7 @@ class AggTypeConfig:
     """Configuration for an aggregation type."""
 
     name: str
+    output_path: Path
     source_reqtype: str | None = None
     source_field: str | None = None
     subdirectory: str | None = None
@@ -46,19 +47,11 @@ class StateConfig:
 
 
 @dataclass(frozen=True)
-class OutputConfig:
-    """Output configuration."""
-
-    output_root: Path
-
-
-@dataclass(frozen=True)
 class AppConfig:
     """Top-level application configuration."""
 
     scan: ScanConfig
     state: StateConfig
-    output: OutputConfig
     agg_types: dict[str, AggTypeConfig]
 
 
@@ -102,21 +95,26 @@ def load_config(path: Path) -> AppConfig:
         log_dir=Path(state_data["log_dir"]),
     )
 
-    # Validate and extract [output]
-    if "output" not in data:
-        raise ValueError("missing required [output] section")
-
-    output_data = data["output"]
-    if "output_root" not in output_data:
-        raise ValueError("missing required field 'output_root' in [output]")
-
-    output = OutputConfig(output_root=Path(output_data["output_root"]))
+    # Reject legacy [output] section
+    if "output" in data:
+        raise ValueError(
+            "The [output] section has been removed. Each [agg.X] block must now "
+            "define output_path. Example:\n"
+            '  [agg.snapshot]\n  output_path = "/path/to/output"'
+        )
 
     # Parse aggregation types from [agg.*]
     agg_types: dict[str, AggTypeConfig] = {}
     agg_data = data.get("agg", {})
 
     for agg_name, agg_config in agg_data.items():
+        # Extract and validate output_path
+        if "output_path" not in agg_config:
+            raise ValueError(
+                f"[agg.{agg_name}] missing required field 'output_path'"
+            )
+        output_path = Path(agg_config["output_path"]).expanduser()
+
         # Extract basic agg type config
         source_reqtype = agg_config.get("source_reqtype")
         source_field = agg_config.get("source_field")
@@ -147,6 +145,7 @@ def load_config(path: Path) -> AppConfig:
 
         agg_type = AggTypeConfig(
             name=agg_name,
+            output_path=output_path,
             source_reqtype=source_reqtype,
             source_field=source_field,
             subdirectory=subdirectory,
@@ -158,7 +157,6 @@ def load_config(path: Path) -> AppConfig:
     return AppConfig(
         scan=scan,
         state=state,
-        output=output,
         agg_types=agg_types,
     )
 
