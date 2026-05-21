@@ -615,7 +615,7 @@ class TestCollectManifest:
         run_dir = output_path / "2026-05-14"
         manifest = collect_manifest(run_dir, "qa", "2026-05-14")
 
-        for table_name, table_data in manifest["tables"].items():
+        for _table_name, table_data in manifest["tables"].items():
             output_types = list(table_data["outputs"].keys())
             assert output_types == sorted(output_types)
 
