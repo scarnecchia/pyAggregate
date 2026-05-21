@@ -15,8 +15,8 @@ source_reqtype = "qmr"
 output_path = "/data/outputs/qm"
 exclude_from_rollup = ["*_stats"]
 
-[agg.sdd]
+[agg.snapshot]
 source_field = "has_scdm"
 subdirectory = "scdm_snapshot"
-output_path = "/data/outputs/sdd"
+output_path = "/data/outputs/snapshot"
 exclude_from_rollup = []

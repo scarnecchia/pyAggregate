@@ -29,18 +29,18 @@ requests_root = "/path/to/requests"
 catalog_db = "/tmp/pyaggregate-test/catalog.db"
 log_dir = "/tmp/pyaggregate-test/logs"
 
-[output]
-output_root = "/tmp/pyaggregate-test/outputs"
-
 [agg.qa]
 source_reqtype = "qar"
+output_path = "/tmp/pyaggregate-test/outputs/qa"
 
 [agg.qm]
 source_reqtype = "qmr"
+output_path = "/tmp/pyaggregate-test/outputs/qm"
 
-[agg.sdd]
-source_reqtype = "qar"
+[agg.snapshot]
+source_field = "has_scdm"
 subdirectory = "scdm_snapshot"
+output_path = "/tmp/pyaggregate-test/outputs/snapshot"
 EOF
 ```
 
@@ -56,7 +56,7 @@ sas -batch -config sas-config.xml run_aggregation.sas
 # Capture outputs
 cp -r /output/sas/qa/latest /tmp/baseline-qa-latest
 cp -r /output/sas/qm/latest /tmp/baseline-qm-latest
-cp -r /output/sas/sdd/latest /tmp/baseline-sdd-latest
+cp -r /output/sas/snapshot/latest /tmp/baseline-snapshot-latest
 
 # Note the run ID and timestamp
 ls -l /tmp/baseline-qa-latest/
@@ -494,7 +494,7 @@ The aggregation pipeline has been switched to pyAggregate.
 
 QA outputs: /var/lib/pyaggregate/outputs/qa/latest/
 QM outputs: /var/lib/pyaggregate/outputs/qm/latest/
-SDD outputs: /var/lib/pyaggregate/outputs/sdd/latest/
+Snapshot outputs: /var/lib/pyaggregate/outputs/snapshot/latest/
 
 Contact ops@example.com if you encounter any issues.
 EOF

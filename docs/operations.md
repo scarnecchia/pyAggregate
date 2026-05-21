@@ -27,18 +27,18 @@ requests_root = "/path/to/requests"
 catalog_db = "/var/lib/pyaggregate/catalog.db"
 log_dir = "/var/log/pyaggregate"
 
-[output]
-output_root = "/var/lib/pyaggregate/outputs"
-
 [agg.qa]
 source_reqtype = "qar"
+output_path = "/var/lib/pyaggregate/outputs/qa"
 
 [agg.qm]
 source_reqtype = "qmr"
+output_path = "/var/lib/pyaggregate/outputs/qm"
 
-[agg.sdd]
-source_reqtype = "qar"
+[agg.snapshot]
+source_field = "has_scdm"
 subdirectory = "scdm_snapshot"
+output_path = "/var/lib/pyaggregate/outputs/snapshot"
 ```
 
 ---
@@ -103,7 +103,7 @@ The state directory (configured as `state.catalog_db` parent) contains:
     ├── qm/
     │   ├── 2026-05-15-000001/
     │   └── latest -> 2026-05-15-000001
-    └── sdd/
+    └── snapshot/
         ├── 2026-05-15-000001/
         └── latest -> 2026-05-15-000001
 
@@ -176,7 +176,7 @@ ls -l /var/lib/pyaggregate/outputs/qa/
 # Rollback to the previous run
 ln -sfn 2026-05-14-000001 /var/lib/pyaggregate/outputs/qa/latest
 ln -sfn 2026-05-14-000001 /var/lib/pyaggregate/outputs/qm/latest
-ln -sfn 2026-05-14-000001 /var/lib/pyaggregate/outputs/sdd/latest
+ln -sfn 2026-05-14-000001 /var/lib/pyaggregate/outputs/snapshot/latest
 ```
 
 **Note:** The `-f` flag overwrites the current symlink atomically. Analysts querying the `latest` symlink will see the previous run immediately after the `ln` command completes.
@@ -260,7 +260,7 @@ Each JSON log line contains:
 **Dynamic fields** (depend on the event):
 - `scan_id`: Identifier for a scanner run
 - `table`: Table name (in aggregation context)
-- `agg_type`: Aggregation type (qa, qm, sdd)
+- `agg_type`: Aggregation type (qa, qm, snapshot)
 - `dpid`: Data partner ID
 - `run_id`: Identifier for an aggregation run
 - `rows_upserted`, `packages_skipped`: Scanner statistics
