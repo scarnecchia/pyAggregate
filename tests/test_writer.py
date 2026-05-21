@@ -6,7 +6,14 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from pyaggregate.io.writer import build_manifest_entry, check_run_exists, filter_dpid_map, write_run
+from pyaggregate.core.input_resolution import TableInput
+from pyaggregate.io.writer import (
+    build_manifest_entry,
+    check_run_exists,
+    collect_manifest,
+    filter_dpid_map,
+    write_run,
+)
 
 
 @pytest.fixture
@@ -550,3 +557,319 @@ class TestBuildManifestEntry:
 
         assert entry["file"] == "stacked/ae.parquet"
         assert not entry["file"].startswith("/")
+
+
+class TestCollectManifest:
+    """Tests for collect_manifest function."""
+
+    def test_manifest_version_and_agg_type(self, tmp_path, table_outputs, dpid_map) -> None:
+        """Test AC4.1, AC4.2: manifest_version is 1, agg_type and run_id match."""
+        output_path = tmp_path / "outputs" / "qa"
+        write_run(
+            output_path=output_path,
+            agg_type="qa",
+            run_id="2026-05-14",
+            table_outputs=table_outputs,
+            dpid_map_frame=dpid_map,
+            update_latest=False,
+        )
+
+        run_dir = output_path / "2026-05-14"
+        manifest = collect_manifest(run_dir, "qa", "2026-05-14")
+
+        assert manifest["manifest_version"] == 1
+        assert manifest["agg_type"] == "qa"
+        assert manifest["run_id"] == "2026-05-14"
+
+    def test_manifest_tables_sorted_alphabetically(self, tmp_path, table_outputs, dpid_map) -> None:
+        """Test AC5.1: Table names are sorted alphabetically."""
+        output_path = tmp_path / "outputs" / "qa"
+        write_run(
+            output_path=output_path,
+            agg_type="qa",
+            run_id="2026-05-14",
+            table_outputs=table_outputs,
+            dpid_map_frame=dpid_map,
+            update_latest=False,
+        )
+
+        run_dir = output_path / "2026-05-14"
+        manifest = collect_manifest(run_dir, "qa", "2026-05-14")
+
+        table_names = list(manifest["tables"].keys())
+        assert table_names == sorted(table_names)
+        assert table_names == ["ae", "ae_stats"]
+
+    def test_manifest_output_types_sorted_alphabetically(self, tmp_path, table_outputs, dpid_map) -> None:
+        """Test AC5.2: Output type keys are sorted alphabetically."""
+        output_path = tmp_path / "outputs" / "qa"
+        write_run(
+            output_path=output_path,
+            agg_type="qa",
+            run_id="2026-05-14",
+            table_outputs=table_outputs,
+            dpid_map_frame=dpid_map,
+            update_latest=False,
+        )
+
+        run_dir = output_path / "2026-05-14"
+        manifest = collect_manifest(run_dir, "qa", "2026-05-14")
+
+        for table_name, table_data in manifest["tables"].items():
+            output_types = list(table_data["outputs"].keys())
+            assert output_types == sorted(output_types)
+
+    def test_manifest_lists_output_types_present(self, tmp_path, table_outputs, dpid_map) -> None:
+        """Test AC2.1: Each table entry lists only the output types that have parquet files."""
+        output_path = tmp_path / "outputs" / "qa"
+        write_run(
+            output_path=output_path,
+            agg_type="qa",
+            run_id="2026-05-14",
+            table_outputs=table_outputs,
+            dpid_map_frame=dpid_map,
+            update_latest=False,
+        )
+
+        run_dir = output_path / "2026-05-14"
+        manifest = collect_manifest(run_dir, "qa", "2026-05-14")
+
+        # ae should have stacked, masked, rollup
+        assert set(manifest["tables"]["ae"]["outputs"].keys()) == {"stacked", "masked", "rollup"}
+        # ae_stats should have stacked, masked (no rollup)
+        assert set(manifest["tables"]["ae_stats"]["outputs"].keys()) == {"stacked", "masked"}
+
+    def test_manifest_table_without_rollup(self, tmp_path, dpid_map) -> None:
+        """Test AC2.5: Table without rollup parquet file has no rollup entry."""
+        output_path = tmp_path / "outputs" / "qa"
+        # Create table_outputs with no rollup for ae_stats
+        table_outputs = {
+            "ae": {
+                "stacked": pl.DataFrame({"col1": [1]}),
+                "masked": pl.DataFrame({"surrogate_id": ["dp_001"], "col1": [1]}),
+            },
+        }
+
+        write_run(
+            output_path=output_path,
+            agg_type="qa",
+            run_id="2026-05-14",
+            table_outputs=table_outputs,
+            dpid_map_frame=dpid_map,
+            update_latest=False,
+        )
+
+        run_dir = output_path / "2026-05-14"
+        manifest = collect_manifest(run_dir, "qa", "2026-05-14")
+
+        assert "rollup" not in manifest["tables"]["ae"]["outputs"]
+
+    def test_manifest_dpid_map_num_surrogates(self, tmp_path, table_outputs, dpid_map) -> None:
+        """Test AC3.1: dpid_map.num_surrogates matches filtered dpid_map row count."""
+        output_path = tmp_path / "outputs" / "qa"
+        write_run(
+            output_path=output_path,
+            agg_type="qa",
+            run_id="2026-05-14",
+            table_outputs=table_outputs,
+            dpid_map_frame=dpid_map,
+            update_latest=False,
+        )
+
+        run_dir = output_path / "2026-05-14"
+        manifest = collect_manifest(run_dir, "qa", "2026-05-14")
+
+        # dpid_map should have been filtered to only dp_001 and dp_002
+        assert manifest["dpid_map"]["num_surrogates"] == 2
+
+    def test_manifest_no_masked_outputs_zero_surrogates(self, tmp_path, dpid_map) -> None:
+        """Test AC3.2: When no masked outputs exist, num_surrogates is 0."""
+        output_path = tmp_path / "outputs" / "qa"
+        table_outputs = {
+            "ae": {
+                "stacked": pl.DataFrame({"col1": [1]}),
+            },
+        }
+
+        write_run(
+            output_path=output_path,
+            agg_type="qa",
+            run_id="2026-05-14",
+            table_outputs=table_outputs,
+            dpid_map_frame=dpid_map,
+            update_latest=False,
+        )
+
+        run_dir = output_path / "2026-05-14"
+        manifest = collect_manifest(run_dir, "qa", "2026-05-14")
+
+        assert manifest["dpid_map"]["num_surrogates"] == 0
+
+    def test_manifest_empty_run(self, tmp_path) -> None:
+        """Test AC1.4: Empty run (all tables skipped) produces manifest with empty tables object."""
+        output_path = tmp_path / "outputs" / "qa"
+        run_dir = output_path / "2026-05-14"
+        run_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create dpid_map.csv with zero rows
+        dpid_df = pl.DataFrame(
+            {
+                "dpid": [],
+                "surrogate_id": [],
+                "first_seen_at": [],
+            }
+        )
+        dpid_df.write_csv(str(run_dir / "dpid_map.csv"))
+
+        manifest = collect_manifest(run_dir, "qa", "2026-05-14")
+
+        assert manifest["tables"] == {}
+        assert manifest["dpid_map"]["num_surrogates"] == 0
+
+    def test_manifest_input_provenance_structure(self, tmp_path, table_outputs, dpid_map) -> None:
+        """Test AC6.1, AC6.2: inputs contains all TableInput fields."""
+        output_path = tmp_path / "outputs" / "qa"
+        write_run(
+            output_path=output_path,
+            agg_type="qa",
+            run_id="2026-05-14",
+            table_outputs=table_outputs,
+            dpid_map_frame=dpid_map,
+            update_latest=False,
+        )
+
+        run_dir = output_path / "2026-05-14"
+        table_inputs_dict = {
+            "ae": [
+                TableInput(
+                    dpid="aeos",
+                    wpid="wp001",
+                    msoc_path=Path("/data/msoc/aeos"),
+                    reqtype="REQUEST",
+                ),
+            ],
+        }
+
+        manifest = collect_manifest(run_dir, "qa", "2026-05-14", table_inputs_dict)
+
+        assert "ae" in manifest["inputs"]
+        assert len(manifest["inputs"]["ae"]) == 1
+        input_entry = manifest["inputs"]["ae"][0]
+        assert input_entry["dpid"] == "aeos"
+        assert input_entry["wpid"] == "wp001"
+        assert input_entry["msoc_path"] == "/data/msoc/aeos"
+        assert input_entry["reqtype"] == "REQUEST"
+
+    def test_manifest_msoc_path_absolute(self, tmp_path, table_outputs, dpid_map) -> None:
+        """Test AC6.3: msoc_path values are absolute filesystem paths."""
+        output_path = tmp_path / "outputs" / "qa"
+        write_run(
+            output_path=output_path,
+            agg_type="qa",
+            run_id="2026-05-14",
+            table_outputs=table_outputs,
+            dpid_map_frame=dpid_map,
+            update_latest=False,
+        )
+
+        run_dir = output_path / "2026-05-14"
+        table_inputs_dict = {
+            "ae": [
+                TableInput(
+                    dpid="aeos",
+                    wpid="wp001",
+                    msoc_path=Path("/absolute/path/to/data"),
+                    reqtype="REQUEST",
+                ),
+            ],
+        }
+
+        manifest = collect_manifest(run_dir, "qa", "2026-05-14", table_inputs_dict)
+
+        assert manifest["inputs"]["ae"][0]["msoc_path"].startswith("/")
+
+    def test_manifest_inputs_sorted_by_dpid(self, tmp_path, table_outputs, dpid_map) -> None:
+        """Test AC6.4: Input entries within each table are sorted by dpid."""
+        output_path = tmp_path / "outputs" / "qa"
+        write_run(
+            output_path=output_path,
+            agg_type="qa",
+            run_id="2026-05-14",
+            table_outputs=table_outputs,
+            dpid_map_frame=dpid_map,
+            update_latest=False,
+        )
+
+        run_dir = output_path / "2026-05-14"
+        table_inputs_dict = {
+            "ae": [
+                TableInput(
+                    dpid="zulu",
+                    wpid="wp001",
+                    msoc_path=Path("/data/zulu"),
+                    reqtype="REQUEST",
+                ),
+                TableInput(
+                    dpid="alpha",
+                    wpid="wp001",
+                    msoc_path=Path("/data/alpha"),
+                    reqtype="REQUEST",
+                ),
+            ],
+        }
+
+        manifest = collect_manifest(run_dir, "qa", "2026-05-14", table_inputs_dict)
+
+        dpids = [entry["dpid"] for entry in manifest["inputs"]["ae"]]
+        assert dpids == sorted(dpids)
+        assert dpids == ["alpha", "zulu"]
+
+    def test_manifest_table_with_no_inputs(self, tmp_path, table_outputs, dpid_map) -> None:
+        """Test AC6.5: Table not in table_inputs_dict has no entry in inputs."""
+        output_path = tmp_path / "outputs" / "qa"
+        write_run(
+            output_path=output_path,
+            agg_type="qa",
+            run_id="2026-05-14",
+            table_outputs=table_outputs,
+            dpid_map_frame=dpid_map,
+            update_latest=False,
+        )
+
+        run_dir = output_path / "2026-05-14"
+        table_inputs_dict = {
+            "ae": [
+                TableInput(
+                    dpid="aeos",
+                    wpid="wp001",
+                    msoc_path=Path("/data/aeos"),
+                    reqtype="REQUEST",
+                ),
+            ],
+        }
+
+        manifest = collect_manifest(run_dir, "qa", "2026-05-14", table_inputs_dict)
+
+        # ae_stats is in tables but not in inputs because we didn't provide it
+        assert "ae_stats" in manifest["tables"]
+        assert "ae_stats" not in manifest["inputs"]
+
+    def test_manifest_default_none_table_inputs_dict(self, tmp_path, table_outputs, dpid_map) -> None:
+        """Test that table_inputs_dict defaults to empty dict when None."""
+        output_path = tmp_path / "outputs" / "qa"
+        write_run(
+            output_path=output_path,
+            agg_type="qa",
+            run_id="2026-05-14",
+            table_outputs=table_outputs,
+            dpid_map_frame=dpid_map,
+            update_latest=False,
+        )
+
+        run_dir = output_path / "2026-05-14"
+        # Call with table_inputs_dict=None (default)
+        manifest = collect_manifest(run_dir, "qa", "2026-05-14")
+
+        assert manifest["inputs"] == {}
+        # But tables should still be populated from disk
+        assert len(manifest["tables"]) > 0

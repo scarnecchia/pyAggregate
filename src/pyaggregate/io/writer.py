@@ -11,6 +11,8 @@ from pathlib import Path
 import polars as pl
 import pyarrow.parquet as pq
 
+from pyaggregate.core.input_resolution import TableInput
+
 logger = logging.getLogger(__name__)
 
 
@@ -241,4 +243,81 @@ def build_manifest_entry(parquet_path: Path, run_dir: Path) -> dict:
             {"name": field.name, "type": str(field.type)}
             for field in arrow_schema
         ],
+    }
+
+
+def collect_manifest(
+    run_dir: Path,
+    agg_type: str,
+    run_id: str,
+    table_inputs_dict: dict[str, list[TableInput]] | None = None,
+) -> dict:
+    """Collect manifest metadata from a completed run directory.
+
+    Walks the run directory to read parquet file footers and dpid_map.csv,
+    assembling a manifest dict that reflects what actually landed on disk.
+    Merges input provenance from resolved TableInput records.
+
+    Args:
+        run_dir: Absolute path to the run directory (output_path / run_id)
+        agg_type: Aggregation type label (e.g., "qa", "qm", "snapshot")
+        run_id: Run identifier
+        table_inputs_dict: Resolved inputs per table from resolve_inputs()
+
+    Returns:
+        Dict ready for JSON serialization as manifest.json
+    """
+    if table_inputs_dict is None:
+        table_inputs_dict = {}
+
+    tables: dict[str, dict] = {}
+
+    for parquet_file in sorted(run_dir.rglob("*.parquet")):
+        try:
+            entry = build_manifest_entry(parquet_file, run_dir)
+        except Exception:
+            logger.warning("Failed to read parquet metadata: %s", parquet_file)
+            continue
+        output_type = parquet_file.parent.name
+        table_name = parquet_file.stem
+
+        if table_name not in tables:
+            tables[table_name] = {"outputs": {}}
+        tables[table_name]["outputs"][output_type] = entry
+
+    # Sort output type keys within each table for determinism (AC5.2)
+    for table_name in tables:
+        tables[table_name]["outputs"] = dict(sorted(tables[table_name]["outputs"].items()))
+
+    # Build inputs section from resolved TableInput records (AC6)
+    inputs: dict[str, list[dict]] = {}
+    for table_name, table_inputs in sorted(table_inputs_dict.items()):
+        inputs[table_name] = [
+            {
+                "dpid": ti.dpid,
+                "wpid": ti.wpid,
+                "msoc_path": str(ti.msoc_path),
+                "reqtype": ti.reqtype,
+            }
+            for ti in sorted(table_inputs, key=lambda ti: ti.dpid)
+        ]
+
+    # Read dpid_map surrogate count from disk (intentional: manifest reflects
+    # what actually landed on disk, not what the pipeline intended to write)
+    dpid_map_path = run_dir / "dpid_map.csv"
+    num_surrogates = 0
+    if dpid_map_path.exists():
+        dpid_df = pl.read_csv(dpid_map_path)
+        num_surrogates = len(dpid_df)
+
+    return {
+        "manifest_version": 1,
+        "agg_type": agg_type,
+        "run_id": run_id,
+        "tables": dict(sorted(tables.items())),
+        "inputs": inputs,
+        "dpid_map": {
+            "file": "dpid_map.csv",
+            "num_surrogates": num_surrogates,
+        },
     }
