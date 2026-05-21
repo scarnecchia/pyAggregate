@@ -151,6 +151,7 @@ def run(
     try:
         from datetime import date
 
+        from pyaggregate.core.input_resolution import check_unknown_dpids
         from pyaggregate.core.pipeline import aggregate_table
         from pyaggregate.io.input_resolver import resolve_inputs
         from pyaggregate.io.sas_reader import read_table
@@ -198,6 +199,22 @@ def run(
             with CatalogStore(catalog_db) as store:
                 catalog_df = store.snapshot_catalog()
                 dpid_map_df = store.snapshot_dpid_map()
+
+            # Check for unknown DPIDs in allowed_dpids config
+            catalog_dpids = set(catalog_df["dpid"].unique().to_list())
+            unknown_warnings = check_unknown_dpids(
+                agg_config.allowed_dpids, catalog_dpids
+            )
+            if unknown_warnings:
+                run_logger = logging.getLogger("pyaggregate.run.inputs")
+                for warning_msg in unknown_warnings:
+                    run_logger.warning(
+                        warning_msg,
+                        extra={
+                            "run_id": run_id,
+                            "agg_type": agg_type,
+                        },
+                    )
 
             # Resolve inputs
             table_inputs_dict = resolve_inputs(catalog_df, agg_config)
