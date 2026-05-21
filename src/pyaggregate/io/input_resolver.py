@@ -24,7 +24,7 @@ def resolve_inputs(
     Orchestrates: filter catalog (pure) -> glob filesystems -> group by table (pure).
 
     For qa/qm: globs msoc_path/*.sas7bdat (excluding subdirectories)
-    For sdd: globs msoc_path/{subdirectory}/*.sas7bdat (config-driven, e.g., "scdm_snapshot")
+    For snapshot: globs msoc_path/{subdirectory}/*.sas7bdat (config-driven, e.g., "scdm_snapshot")
 
     Args:
         catalog: Full catalog snapshot

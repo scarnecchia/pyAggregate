@@ -31,7 +31,7 @@ def write_run(
 
     Args:
         output_path: Per-agg output directory (from config agg_config.output_path)
-        agg_type: Aggregation type label (e.g., "qa", "qm", "sdd")
+        agg_type: Aggregation type label (e.g., "qa", "qm", "snapshot")
         run_id: Run identifier (directory name)
         table_outputs: Dict mapping table_name -> {output_type -> DataFrame}
         dpid_map_frame: Full dpid_map DataFrame to filter
@@ -183,7 +183,7 @@ def build_run_summary(
     without parsing logs.
 
     Args:
-        agg_type: Aggregation type label (e.g., "qa", "qm", "sdd")
+        agg_type: Aggregation type label (e.g., "qa", "qm", "snapshot")
         run_id: Run identifier
         started_at: ISO timestamp of run start
         ended_at: ISO timestamp of run end

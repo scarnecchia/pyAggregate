@@ -39,7 +39,7 @@ def filter_catalog(catalog: pl.DataFrame, agg_config: AggTypeConfig) -> pl.DataF
     """Filter catalog rows based on aggregation type configuration.
 
     For qa/qm types: filters to catalog rows where reqtype == source_reqtype
-    For sdd type: filters to catalog rows where source_field column == 1
+    For snapshot type: filters to catalog rows where source_field column == 1
 
     Args:
         catalog: Full catalog DataFrame with dpid, reqtype, and source_field columns
@@ -122,8 +122,8 @@ def group_inputs_by_table(
     return result
 
 
-def detect_sdd_collisions(inputs: dict[str, list[TableInput]]) -> list[str]:
-    """Detect filename collisions in SDD inputs (same file from both qar and qmr).
+def detect_snapshot_collisions(inputs: dict[str, list[TableInput]]) -> list[str]:
+    """Detect filename collisions in snapshot inputs (same file from both qar and qmr).
 
     For each table, checks if the same (dpid, wpid) appears in both qar and qmr
     reqtype. Returns warning messages for each collision.
