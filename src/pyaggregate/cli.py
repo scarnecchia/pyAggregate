@@ -265,6 +265,7 @@ def run(
                     dpid_map_frame=dpid_map_df,
                     update_latest=update_latest,
                     tables_skipped=tables_skipped,
+                    table_inputs_dict=table_inputs_dict,
                 )
 
                 typer.echo(
