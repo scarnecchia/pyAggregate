@@ -32,17 +32,20 @@ log_dir = "/data/state/logs"
 [agg.qa]
 source_reqtype = "qar"
 output_path = "/data/outputs/qa"
+allowed_dpids = ["*"]
 exclude_from_rollup = ["*_stats"]
 
 [agg.qm]
 source_reqtype = "qmr"
 output_path = "/data/outputs/qm"
+allowed_dpids = ["*"]
 exclude_from_rollup = ["*_stats"]
 
 [agg.snapshot]
 source_field = "has_scdm"
 subdirectory = "scdm_snapshot"
 output_path = "/data/outputs/snapshot"
+allowed_dpids = ["*"]
 exclude_from_rollup = []
 """)
 
@@ -71,6 +74,7 @@ exclude_from_rollup = []
         assert qa_config.name == "qa"
         assert qa_config.source_reqtype == "qar"
         assert qa_config.output_path == Path("/data/outputs/qa")
+        assert qa_config.allowed_dpids == ("*",)
         assert qa_config.exclude_from_rollup == ("*_stats",)
 
         # Verify snapshot config
@@ -120,6 +124,7 @@ log_dir = "/data/state/logs"
 [agg.qa]
 source_reqtype = "qar"
 output_path = "/data/outputs/qa"
+allowed_dpids = ["*"]
 
 [agg.qa.tables.ae]
 rollup_keys = ["col1", "col2"]
@@ -150,6 +155,7 @@ log_dir = "/data/state/logs"
 [agg.qa]
 source_reqtype = "qar"
 output_path = "/data/outputs/qa"
+allowed_dpids = ["*"]
 """)
 
         config = load_config(config_file)
@@ -172,6 +178,7 @@ log_dir = "/data/state/logs"
 [agg.qa]
 source_reqtype = "qar"
 output_path = "/data/outputs/qa"
+allowed_dpids = ["*"]
 """)
 
         config = load_config(config_file)
@@ -238,6 +245,7 @@ log_dir = "/data/state/logs"
 [agg.qa]
 source_reqtype = "qar"
 output_path = "~/outputs/qa"
+allowed_dpids = ["*"]
 """)
 
         config = load_config(config_file)
@@ -258,6 +266,7 @@ log_dir = "/data/state/logs"
 [agg.qa]
 source_reqtype = "qar"
 output_path = "relative/path"
+allowed_dpids = ["*"]
 """)
 
         config = load_config(config_file)
@@ -309,6 +318,133 @@ output_path = 42
             agg_config = config.agg_types[agg_type_name]
             assert agg_config.name == agg_type_name
             assert agg_config.output_path is not None
+
+    def test_allowed_dpids_list_parsing_ac1_1(self, tmp_path: Path) -> None:
+        """dpid-filtering.AC1.1: allowed_dpids list parses into tuple[str, ...]."""
+        config_file = tmp_path / "dpid_config.toml"
+        config_file.write_text("""
+[scan]
+requests_root = "/data/requests"
+
+[state]
+catalog_db = "/data/state/catalog.db"
+log_dir = "/data/state/logs"
+
+[agg.qa]
+source_reqtype = "qar"
+output_path = "/data/outputs/qa"
+allowed_dpids = ["msoc", "nsdp"]
+""")
+
+        config = load_config(config_file)
+        qa_config = config.agg_types["qa"]
+
+        assert qa_config.allowed_dpids == ("msoc", "nsdp")
+
+    def test_allowed_dpids_wildcard_ac1_2(self, tmp_path: Path) -> None:
+        """dpid-filtering.AC1.2: allowed_dpids = ["*"] parses without error."""
+        config_file = tmp_path / "wildcard_config.toml"
+        config_file.write_text("""
+[scan]
+requests_root = "/data/requests"
+
+[state]
+catalog_db = "/data/state/catalog.db"
+log_dir = "/data/state/logs"
+
+[agg.qa]
+source_reqtype = "qar"
+output_path = "/data/outputs/qa"
+allowed_dpids = ["*"]
+""")
+
+        config = load_config(config_file)
+        qa_config = config.agg_types["qa"]
+
+        assert qa_config.allowed_dpids == ("*",)
+
+    def test_allowed_dpids_empty_list_ac1_3(self, tmp_path: Path) -> None:
+        """dpid-filtering.AC1.3: allowed_dpids = [] parses without error."""
+        config_file = tmp_path / "empty_config.toml"
+        config_file.write_text("""
+[scan]
+requests_root = "/data/requests"
+
+[state]
+catalog_db = "/data/state/catalog.db"
+log_dir = "/data/state/logs"
+
+[agg.qa]
+source_reqtype = "qar"
+output_path = "/data/outputs/qa"
+allowed_dpids = []
+""")
+
+        config = load_config(config_file)
+        qa_config = config.agg_types["qa"]
+
+        assert qa_config.allowed_dpids == ()
+
+    def test_allowed_dpids_missing_raises_ac1_4(self, tmp_path: Path) -> None:
+        """dpid-filtering.AC1.4: Missing allowed_dpids raises ValueError."""
+        config_file = tmp_path / "missing_dpid_config.toml"
+        config_file.write_text("""
+[scan]
+requests_root = "/data/requests"
+
+[state]
+catalog_db = "/data/state/catalog.db"
+log_dir = "/data/state/logs"
+
+[agg.qa]
+source_reqtype = "qar"
+output_path = "/data/outputs/qa"
+""")
+
+        with pytest.raises(ValueError, match="allowed_dpids"):
+            load_config(config_file)
+
+    def test_allowed_dpids_non_list_raises_ac1_5(self, tmp_path: Path) -> None:
+        """dpid-filtering.AC1.5: Non-list allowed_dpids raises ValueError."""
+        config_file = tmp_path / "non_list_dpid_config.toml"
+        config_file.write_text("""
+[scan]
+requests_root = "/data/requests"
+
+[state]
+catalog_db = "/data/state/catalog.db"
+log_dir = "/data/state/logs"
+
+[agg.qa]
+source_reqtype = "qar"
+output_path = "/data/outputs/qa"
+allowed_dpids = "not_a_list"
+""")
+
+        with pytest.raises(ValueError, match="allowed_dpids.*list"):
+            load_config(config_file)
+
+    def test_allowed_dpids_case_normalization(self, tmp_path: Path) -> None:
+        """allowed_dpids values are normalized to lowercase."""
+        config_file = tmp_path / "case_config.toml"
+        config_file.write_text("""
+[scan]
+requests_root = "/data/requests"
+
+[state]
+catalog_db = "/data/state/catalog.db"
+log_dir = "/data/state/logs"
+
+[agg.qa]
+source_reqtype = "qar"
+output_path = "/data/outputs/qa"
+allowed_dpids = ["MSOC", "NsDp"]
+""")
+
+        config = load_config(config_file)
+        qa_config = config.agg_types["qa"]
+
+        assert qa_config.allowed_dpids == ("msoc", "nsdp")
 
 
 class TestResolveConfigPath:

@@ -8,15 +8,19 @@ log_dir = "/data/state/logs"
 [agg.qa]
 source_reqtype = "qar"
 output_path = "/data/outputs/qa"
+# DPIDs are lowercase (matched against catalog path-derived values)
+allowed_dpids = ["*"]
 exclude_from_rollup = ["*_stats"]
 
 [agg.qm]
 source_reqtype = "qmr"
 output_path = "/data/outputs/qm"
+allowed_dpids = ["*"]
 exclude_from_rollup = ["*_stats"]
 
 [agg.snapshot]
 source_field = "has_scdm"
 subdirectory = "scdm_snapshot"
 output_path = "/data/outputs/snapshot"
+allowed_dpids = ["*"]
 exclude_from_rollup = []

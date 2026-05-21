@@ -130,6 +130,20 @@ def load_config(path: Path) -> AppConfig:
         # Convert list to tuple
         exclude_from_rollup = tuple(exclude_from_rollup_list)
 
+        # Parse and validate allowed_dpids
+        if "allowed_dpids" not in agg_config:
+            raise ValueError(
+                f"[agg.{agg_name}] missing required field 'allowed_dpids'. "
+                f"Use [\"*\"] to include all data partners."
+            )
+        allowed_dpids_raw = agg_config["allowed_dpids"]
+        if not isinstance(allowed_dpids_raw, list):
+            raise ValueError(
+                f"[agg.{agg_name}] allowed_dpids must be a list, "
+                f"got {type(allowed_dpids_raw).__name__}"
+            )
+        allowed_dpids = tuple(str(d).lower() for d in allowed_dpids_raw)
+
         # Parse per-table overrides from [agg.<name>.tables.<table>]
         table_overrides_dict: dict[str, TableOverride] = {}
         tables_data = agg_config.get("tables", {})
@@ -156,6 +170,7 @@ def load_config(path: Path) -> AppConfig:
             source_field=source_field,
             subdirectory=subdirectory,
             exclude_from_rollup=exclude_from_rollup,
+            allowed_dpids=allowed_dpids,
             table_overrides=table_overrides,
         )
         agg_types[agg_name] = agg_type
