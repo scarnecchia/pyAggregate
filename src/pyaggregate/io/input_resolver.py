@@ -8,6 +8,7 @@ import polars as pl
 from pyaggregate.config import AggTypeConfig
 from pyaggregate.core.input_resolution import (
     TableInput,
+    filter_allowed_dpids,
     filter_catalog,
     group_inputs_by_table,
     select_latest_workplan_per_dp,
@@ -44,6 +45,11 @@ def resolve_inputs(
 
     # Filter catalog to relevant rows
     filtered_catalog = filter_catalog(catalog, agg_config)
+
+    # Apply DPID allowlist filter
+    filtered_catalog = filter_allowed_dpids(
+        filtered_catalog, agg_config.allowed_dpids
+    )
 
     # Narrow to highest wpid per (dpid, reqtype) — only the latest workplan
     # gets aggregated, even though older workplans remain in the catalog.
