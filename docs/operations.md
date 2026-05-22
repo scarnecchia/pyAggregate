@@ -65,6 +65,8 @@ Each `[agg.*]` block requires `allowed_dpids` — a list of lowercase DPID strin
 **Cron log format:**
 Each run produces a single log file entry. Timestamp and all structured fields are in the JSON log at `log_dir/pyaggregate-YYYY-MM-DD.log`.
 
+Scan captures all paths within the defined directory, allowing aggregation runs specifying different Data Partners to use a single database instance.
+
 ### Aggregation Run (weekly, early morning)
 
 ```

@@ -86,4 +86,50 @@ Two cron jobs cover the full lifecycle:
 - `*/15 * * * * flock -n /var/run/pyaggregate-scan.lock pyaggregate scan` — scan every 15 minutes
 - `0 3 * * 0 pyaggregate run` — aggregate weekly
 
-See `docs/operations.md` for detailed operational documentation.
+See [docs/operations.md](docs/operations.md) for detailed operational documentation, and [docs/migration.md](docs/migration.md) for migrating from the legacy SAS pipeline.
+
+## Development
+
+Requirements: Python 3.11+.
+
+Set up a working copy with dev dependencies and pre-commit hooks:
+
+```bash
+pip install -e ".[dev]"
+pre-commit install
+```
+
+### Project layout
+
+- [src/pyaggregate/cli.py](src/pyaggregate/cli.py) — Typer CLI entry point (imperative shell)
+- [src/pyaggregate/config.py](src/pyaggregate/config.py) — TOML loader and frozen config dataclasses
+- [src/pyaggregate/core/](src/pyaggregate/core/) — pure domain logic (pipeline, input resolution, masking)
+- [src/pyaggregate/io/](src/pyaggregate/io/) — I/O adapters (writer, scanner, catalog store, SAS reader)
+- [tests/](tests/) — pytest + Hypothesis test suite
+- [docs/](docs/) — operations and migration guides
+- [pyaggregate.example.toml](pyaggregate.example.toml) — reference config
+
+The codebase follows a Functional Core / Imperative Shell pattern; files are annotated with `# pattern:` comments indicating which side of the boundary they live on. Config dataclasses are frozen, and run outputs are written via a temp-then-rename atomic pattern.
+
+### Common tasks
+
+```bash
+pytest                        # run the test suite
+ruff check src/ tests/        # lint
+mypy src/                     # type check
+```
+
+### Running locally
+
+Point the CLI at a local config (e.g. a copy of `pyaggregate.example.toml`) via `--config`, the `PYAGGREGATE_CONFIG` env var, or by placing `pyaggregate.toml` in the working directory — resolution follows that precedence order.
+
+```bash
+pyaggregate init-db --config ./pyaggregate.toml
+pyaggregate scan   --config ./pyaggregate.toml
+pyaggregate run    --config ./pyaggregate.toml
+```
+
+### Further reading
+
+- [docs/operations.md](docs/operations.md) — cron schedule, state layout, backups, monitoring, log inspection, troubleshooting
+- [docs/migration.md](docs/migration.md) — parity verification, shadow run, cutover, and SAS retirement procedures
