@@ -23,7 +23,7 @@ def table_outputs() -> dict[str, dict[str, pl.DataFrame]]:
         "ae": {
             "stacked": pl.DataFrame(
                 {
-                    "dpid": ["msoc", "nsdp"],
+                    "dp": ["msoc", "nsdp"],
                     "col1": [1, 2],
                 }
             ),
@@ -42,7 +42,7 @@ def table_outputs() -> dict[str, dict[str, pl.DataFrame]]:
         "ae_stats": {
             "stacked": pl.DataFrame(
                 {
-                    "dpid": ["msoc"],
+                    "dp": ["msoc"],
                     "col1": [1],
                 }
             ),
@@ -381,7 +381,7 @@ def test_write_run_empty_masked_surrogates(tmp_path, dpid_map):
         "ae": {
             "stacked": pl.DataFrame(
                 {
-                    "dpid": ["msoc"],
+                    "dp": ["msoc"],
                     "col1": [1],
                 }
             ),
@@ -441,7 +441,7 @@ class TestFilterDpidMap:
         )
         table_outputs = {
             "ae": {
-                "stacked": pl.DataFrame({"dpid": ["msoc"], "val": [1]}),
+                "stacked": pl.DataFrame({"dp": ["msoc"], "val": [1]}),
             },
         }
 
@@ -488,7 +488,7 @@ class TestBuildManifestEntry:
 
         df = pl.DataFrame(
             {
-                "dpid": ["msoc", "nsdp", "kpsc"],
+                "dp": ["msoc", "nsdp", "kpsc"],
                 "col1": [1, 2, 3],
             }
         )
@@ -508,7 +508,7 @@ class TestBuildManifestEntry:
 
         df = pl.DataFrame(
             {
-                "dpid": ["msoc"],
+                "dp": ["msoc"],
                 "col1": [1],
                 "col2": [2],
                 "col3": [3],
@@ -530,7 +530,7 @@ class TestBuildManifestEntry:
 
         df = pl.DataFrame(
             {
-                "dpid": ["msoc"],
+                "dp": ["msoc"],
                 "count": [42],
             }
         )
@@ -540,7 +540,7 @@ class TestBuildManifestEntry:
         entry = build_manifest_entry(parquet_path, run_dir)
 
         assert len(entry["columns"]) == 2
-        assert entry["columns"][0]["name"] == "dpid"
+        assert entry["columns"][0]["name"] == "dp"
         assert "string" in entry["columns"][0]["type"].lower()
         assert entry["columns"][1]["name"] == "count"
         assert "int" in entry["columns"][1]["type"].lower()

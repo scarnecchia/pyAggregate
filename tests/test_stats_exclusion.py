@@ -47,14 +47,14 @@ class TestAggregateTableExcludeRollup:
             data = pl.DataFrame(
                 {
                     "value": [100, 200],
-                    "dpid": ["aeos"] * 2,
+                    "dp": ["aeos"] * 2,
                 }
             )
         else:
             data = pl.DataFrame(
                 {
                     "value": [],
-                    "dpid": [],
+                    "dp": [],
                 }
             )
         return data.lazy()

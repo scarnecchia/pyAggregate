@@ -36,20 +36,22 @@ def read_table(
     dpid: str,
     schema_overrides: dict[str, pl.DataType] | None = None,
 ) -> pl.LazyFrame:
-    """Lazily read a SAS table, lowercase columns, and inject dpid.
+    """Lazily read a SAS table, lowercase columns, and inject the `dp` column.
 
     Constructs the SAS file path as msoc_path/{table_name}.sas7bdat,
     lowercases all column names via name.to_lowercase(), and injects
-    a dpid column with the given value.
+    a `dp` column with the given value. Source tables that already
+    contain a `dp` column are overwritten so the value reflects the
+    catalogued partner identity.
 
     Args:
         msoc_path: Path to msoc directory
         table_name: Name of table (without .sas7bdat extension)
-        dpid: Data partner ID to inject into dpid column
+        dpid: Data partner ID to inject into the `dp` column
         schema_overrides: Type overrides for identifier columns (recommended for large numeric IDs)
 
     Returns:
-        LazyFrame with columns lowercased, dpid column injected, ready to collect
+        LazyFrame with columns lowercased, `dp` column injected, ready to collect
     """
     sas_path = msoc_path / f"{table_name}.sas7bdat"
 
@@ -62,8 +64,8 @@ def read_table(
     # Lowercase all column names
     lazy_frame = lazy_frame.select(pl.all().name.to_lowercase())
 
-    # Inject dpid column
-    lazy_frame = lazy_frame.with_columns(pl.lit(dpid).alias("dpid"))
+    # Inject (or overwrite) the data-partner column
+    lazy_frame = lazy_frame.with_columns(pl.lit(dpid).alias("dp"))
 
     return lazy_frame
 

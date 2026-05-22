@@ -41,8 +41,8 @@ class TestReadTable:
             assert "PATID" not in collected.columns
             assert "BIRTH_DT" not in collected.columns
 
-    def test_read_table_injects_dpid_column(self) -> None:
-        """read_table injects dpid column with given value."""
+    def test_read_table_injects_dp_column(self) -> None:
+        """read_table injects `dp` column with the given dpid value."""
         msoc_path = Path("/fake/msoc")
         table_name = "Patient"
         dpid = "cms"
@@ -55,8 +55,8 @@ class TestReadTable:
             result = read_table(msoc_path, table_name, dpid)
             collected = result.collect()
 
-            assert "dpid" in collected.columns
-            assert collected["dpid"].to_list() == ["cms", "cms"]
+            assert "dp" in collected.columns
+            assert collected["dp"].to_list() == ["cms", "cms"]
 
     def test_read_table_constructs_correct_path(self) -> None:
         """read_table constructs path as msoc_path/table_name.sas7bdat."""

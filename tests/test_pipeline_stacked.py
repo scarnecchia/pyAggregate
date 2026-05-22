@@ -18,7 +18,7 @@ def fake_reader(msoc_path: Path, table_name: str, dpid: str) -> pl.LazyFrame:
             {
                 "patient_id": [1, 2, 3, 4, 5],
                 "value": [100, 101, 102, 103, 104],
-                "dpid": ["aeos"] * 5,
+                "dp": ["aeos"] * 5,
             }
         )
     elif dpid == "cms":
@@ -26,7 +26,7 @@ def fake_reader(msoc_path: Path, table_name: str, dpid: str) -> pl.LazyFrame:
             {
                 "patient_id": [6, 7, 8, 9, 10],
                 "value": [200, 201, 202, 203, 204],
-                "dpid": ["cms"] * 5,
+                "dp": ["cms"] * 5,
             }
         )
     elif dpid == "kpsc":
@@ -34,7 +34,7 @@ def fake_reader(msoc_path: Path, table_name: str, dpid: str) -> pl.LazyFrame:
             {
                 "patient_id": [11, 12, 13, 14, 15],
                 "value": [300, 301, 302, 303, 304],
-                "dpid": ["kpsc"] * 5,
+                "dp": ["kpsc"] * 5,
             }
         )
     else:
@@ -42,7 +42,7 @@ def fake_reader(msoc_path: Path, table_name: str, dpid: str) -> pl.LazyFrame:
             {
                 "patient_id": [],
                 "value": [],
-                "dpid": [],
+                "dp": [],
             }
         )
 
@@ -63,8 +63,8 @@ def dpid_map_fixture() -> pl.DataFrame:
 class TestAggregateTableBasic:
     """Example-based tests for aggregate_table."""
 
-    def test_aggregate_table_stacked_has_dpid(self, dpid_map_fixture: pl.DataFrame) -> None:
-        """Stacked output preserves dpid column with real values."""
+    def test_aggregate_table_stacked_has_dp(self, dpid_map_fixture: pl.DataFrame) -> None:
+        """Stacked output preserves `dp` column with real values."""
         table_inputs = [
             TableInput("aeos", "wp041", Path("/data/aeos/msoc"), "qar"),
             TableInput("cms", "wp041", Path("/data/cms/msoc"), "qar"),
@@ -79,12 +79,12 @@ class TestAggregateTableBasic:
         )
 
         stacked = result["stacked"]
-        assert "dpid" in stacked.columns
-        dpids = stacked["dpid"].unique().to_list()
-        assert set(dpids) == {"aeos", "cms"}
+        assert "dp" in stacked.columns
+        dps = stacked["dp"].unique().to_list()
+        assert set(dps) == {"aeos", "cms"}
 
     def test_aggregate_table_masked_has_surrogate(self, dpid_map_fixture: pl.DataFrame) -> None:
-        """Masked output has surrogate_id, no dpid."""
+        """Masked output has surrogate_id, no `dp`."""
         table_inputs = [
             TableInput("aeos", "wp041", Path("/data/aeos/msoc"), "qar"),
         ]
@@ -99,7 +99,7 @@ class TestAggregateTableBasic:
 
         masked = result["masked"]
         assert "surrogate_id" in masked.columns
-        assert "dpid" not in masked.columns
+        assert "dp" not in masked.columns
         assert masked.height > 0
 
     def test_aggregate_table_stacked_and_masked_same_row_count(
@@ -138,7 +138,7 @@ class TestAggregateTableBasic:
 
         assert result["stacked"].height == 5
         assert result["masked"].height == 5
-        assert result["stacked"]["dpid"][0] == "kpsc"
+        assert result["stacked"]["dp"][0] == "kpsc"
 
     def test_aggregate_table_empty_inputs(self, dpid_map_fixture: pl.DataFrame) -> None:
         """Empty input produces empty DataFrames with correct schema."""
@@ -155,11 +155,11 @@ class TestAggregateTableBasic:
         assert result["stacked"].height == 0
         assert result["masked"].height == 0
         # Check schema columns exist
-        assert "dpid" in result["stacked"].columns
+        assert "dp" in result["stacked"].columns
         assert "surrogate_id" in result["masked"].columns
 
     def test_aggregate_table_preserves_other_columns(self, dpid_map_fixture: pl.DataFrame) -> None:
-        """Aggregation preserves columns other than dpid/surrogate_id."""
+        """Aggregation preserves columns other than `dp`/surrogate_id."""
         table_inputs = [
             TableInput("aeos", "wp041", Path("/data/aeos/msoc"), "qar"),
         ]
@@ -173,10 +173,10 @@ class TestAggregateTableBasic:
         )
 
         stacked = result["stacked"]
-        # Should have original columns plus dpid
+        # Should have original columns plus `dp`
         assert "patient_id" in stacked.columns
         assert "value" in stacked.columns
-        assert "dpid" in stacked.columns
+        assert "dp" in stacked.columns
 
     def test_aggregate_table_three_dps(self, dpid_map_fixture: pl.DataFrame) -> None:
         """Three DPs each with 5 rows produces 15-row stacked output."""
@@ -211,7 +211,7 @@ class TestAggregateTableSchemaDrift:
                     {
                         "patient_id": [1, 2],
                         "value": [100, 101],
-                        "dpid": ["aeos"] * 2,
+                        "dp": ["aeos"] * 2,
                         "extra_col": ["x", "y"],
                     }
                 )
@@ -221,7 +221,7 @@ class TestAggregateTableSchemaDrift:
                     {
                         "patient_id": [3, 4],
                         "value": [200, 201],
-                        "dpid": ["cms"] * 2,
+                        "dp": ["cms"] * 2,
                     }
                 )
 
@@ -245,5 +245,5 @@ class TestAggregateTableSchemaDrift:
         # extra_col should exist and be null for cms rows
         assert "extra_col" in stacked.columns
         # Check that cms rows have null extra_col
-        cms_rows = stacked.filter(pl.col("dpid") == "cms")
+        cms_rows = stacked.filter(pl.col("dp") == "cms")
         assert cms_rows["extra_col"].is_null().sum() == 2

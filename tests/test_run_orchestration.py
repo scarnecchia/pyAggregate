@@ -111,7 +111,7 @@ def _create_synthetic_table_output(table_name: str = "ae") -> dict[str, pl.DataF
         return {
             "stacked": pl.DataFrame(
                 {
-                    "dpid": ["aeos", "cms"],
+                    "dp": ["aeos", "cms"],
                     "col1": [1, 2],
                 }
             ),
@@ -131,7 +131,7 @@ def _create_synthetic_table_output(table_name: str = "ae") -> dict[str, pl.DataF
         return {
             "stacked": pl.DataFrame(
                 {
-                    "dpid": ["aeos"],
+                    "dp": ["aeos"],
                     "col1": [1],
                 }
             ),
@@ -146,7 +146,7 @@ def _create_synthetic_table_output(table_name: str = "ae") -> dict[str, pl.DataF
         return {
             "stacked": pl.DataFrame(
                 {
-                    "dpid": ["aeos"],
+                    "dp": ["aeos"],
                     "col1": [1],
                 }
             ),

@@ -30,6 +30,54 @@ def should_exclude_rollup(table_name: str, exclude_patterns: tuple[str, ...]) ->
     return any(fnmatch.fnmatch(table_name, pattern) for pattern in exclude_patterns)
 
 
+# Distribution-statistic column names whose values describe a per-partner
+# distribution and therefore cannot be summed across partners. Detected by
+# case-insensitive exact name match. Names sourced from the QA data dictionary
+# (qa, qa_mil, snapshot) survey of numeric variables.
+NEVER_SUM_NAMES: frozenset[str] = frozenset(
+    {
+        "mean",
+        "std",
+        "stddev",
+        "variance",
+        "median",
+        "min",
+        "max",
+        "p1",
+        "p5",
+        "p10",
+        "p25",
+        "p50",
+        "p75",
+        "p90",
+        "p95",
+        "p99",
+    }
+)
+
+_TEMPORAL_DTYPES: frozenset[type] = frozenset({pl.Date, pl.Datetime, pl.Time})
+
+
+def _is_temporal(dtype: pl.DataType) -> bool:
+    """True if the dtype is a date/datetime/time column."""
+    return type(dtype) in _TEMPORAL_DTYPES
+
+
+def _is_summable(col: str, dtype: pl.DataType) -> bool:
+    """True if a column is a numeric measure safe to sum across partners.
+
+    Excludes:
+      - non-numeric columns
+      - temporal columns (Date/Datetime/Time)
+      - distribution-statistic columns by name (mean, std, percentiles, min/max, etc.)
+    """
+    if not dtype.is_numeric():
+        return False
+    if _is_temporal(dtype):
+        return False
+    return col.lower() not in NEVER_SUM_NAMES
+
+
 def compute_rollup(
     stacked: pl.DataFrame,
     rollup_keys: list[str] | None,
@@ -37,40 +85,43 @@ def compute_rollup(
 ) -> pl.DataFrame:
     """Compute rollup aggregation from stacked DataFrame.
 
-    Rollup collapses rows by grouping on key columns and aggregating numeric columns.
-    Removes dpid and surrogate_id before grouping.
+    Rollup collapses rows by grouping on key columns and aggregating numeric measures.
+    Removes `dp` and surrogate_id before grouping. Columns that look numeric but
+    represent dates or per-partner distribution statistics (mean, std, percentiles,
+    min/max) become group keys rather than being summed across partners.
 
     Args:
         stacked: DataFrame with all stacked rows from multiple DPs
-        rollup_keys: Columns to group by. If None, all non-numeric columns are used
+        rollup_keys: Columns to group by. If None, defaults to all columns that
+            are not summable measures (i.e., non-numeric, temporal, or
+            distribution-statistic columns by name).
         rollup_aggs: Dict mapping column names to aggregation functions.
-                     If None, "sum" is used for all numeric columns
+            If None, "sum" is applied to numeric measure columns only
+            (excluding temporal and NEVER_SUM_NAMES columns).
 
     Returns:
-        Aggregated DataFrame with dpid and surrogate_id removed
+        Aggregated DataFrame with `dp` and surrogate_id removed
     """
-    # Drop sensitive identifier columns
-    working = stacked.drop(["dpid", "surrogate_id"], strict=False)
+    working = stacked.drop(["dp", "surrogate_id"], strict=False)
 
-    # Determine grouping keys: all non-numeric columns if not specified
+    summable: dict[str, pl.DataType] = {
+        col: dtype
+        for col, dtype in working.schema.items()
+        if _is_summable(col, dtype)
+    }
+
     if rollup_keys is None:
-        col_types = zip(working.columns, working.schema.values(), strict=True)
-        numeric_cols = {col for col, dtype in col_types if dtype.is_numeric()}
-        rollup_keys_final = [col for col in working.columns if col not in numeric_cols]
+        rollup_keys_final = [col for col in working.columns if col not in summable]
     else:
         rollup_keys_final = list(rollup_keys)
 
-    # Determine aggregations: sum for all numeric columns if not specified
     if rollup_aggs is None:
-        col_types = zip(working.columns, working.schema.values(), strict=True)
-        numeric_cols = {col for col, dtype in col_types if dtype.is_numeric()}
-        # Exclude grouping keys from aggregations
-        numeric_cols_to_agg = numeric_cols - set(rollup_keys_final)
-        rollup_aggs_final = {col: "sum" for col in numeric_cols_to_agg}
+        rollup_aggs_final = {
+            col: "sum" for col in summable if col not in set(rollup_keys_final)
+        }
     else:
         rollup_aggs_final = rollup_aggs
 
-    # Apply groupby and aggregation
     if rollup_keys_final:
         agg_exprs = [getattr(pl.col(col), agg_fn)() for col, agg_fn in rollup_aggs_final.items()]
         result = working.group_by(rollup_keys_final).agg(agg_exprs)
@@ -185,7 +236,7 @@ def aggregate_table(
     )
 
     if not table_inputs:
-        empty_stacked = pl.DataFrame({"dpid": pl.Series([], dtype=pl.Utf8)})
+        empty_stacked = pl.DataFrame({"dp": pl.Series([], dtype=pl.Utf8)})
         empty_masked = pl.DataFrame({"surrogate_id": pl.Series([], dtype=pl.Utf8)})
         result: dict[str, pl.DataFrame] = {"stacked": empty_stacked, "masked": empty_masked}
         if not should_exclude_rollup(table_name, agg_config.exclude_from_rollup):
